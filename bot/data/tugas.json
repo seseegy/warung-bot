@@ -1,0 +1,25 @@
+{
+	"_keterangan": "Level Warung. Permintaan Agus (cerita.json bab dengan 'level' yang sama) ikut menjadi tugas level itu dan harus lunas sebelum naik level. Progres dihitung sejak level itu dimulai (boleh lewat beberapa hari). Kalau semua tugas selesai, pemain dapat hadiah dan naik level. omzet = total uang masuk dari penjualan (bukan laba). bintang = reputasi minimal (DIHAPUS 29 Okt atas permintaan user: reputasi hanya menambah keramaian, bukan syarat level). upgrade = syarat beli salah satu upgrade ini (sudah terbuka di level itu). khusus = tugas kualitas: beruntun (layani N pelanggan berturut-turut tanpa ada yang batal), multi (layani N pesanan berisi 2 jenis barang atau lebih), laba_hari (laba minimal N dalam satu hari), minuman (jual N minuman), hari_sempurna (tutup satu hari tanpa pelanggan batal, minimal N pelanggan dilayani). buka = barang yang terbuka saat MENCAPAI level ini (dapat stok awal). Setelah level terakhir (Level 10) muncul Level 11 'Coming Soon'. 29 Okt: Level 1-5 dikembalikan ke angka semula (cadangan_latar_lama/tugas_sebelum_29okt.json), Level 6-7 diringankan, Level 8-10 baru (tanpa upgrade/barang baru).",
+	"tingkat": [
+		{"nama": "Pemula", "pelanggan": 15, "barang": 25, "omzet": 100000, "hadiah": 15000,
+			"khusus": {"jenis": "beruntun", "target": 5}},
+		{"nama": "Mulai Dikenal", "buka": ["kerupuk"], "upgrade": ["kipas"], "pelanggan": 40, "barang": 70, "omzet": 400000, "hadiah": 50000,
+			"khusus": {"jenis": "multi", "target": 8}},
+		{"nama": "Langganan Kampung", "buka": ["minuman_energi"], "upgrade": ["spanduk", "bangku"], "pelanggan": 90, "barang": 160, "omzet": 1000000, "hadiah": 100000,
+			"khusus": {"jenis": "laba_hari", "target": 40000}},
+		{"nama": "Warung Ramai", "upgrade": ["kurir_cepat"], "pelanggan": 180, "barang": 320, "omzet": 2200000, "hadiah": 200000,
+			"khusus": {"jenis": "multi", "target": 25}},
+		{"nama": "Juragan Warung", "upgrade": ["radio"], "pelanggan": 350, "barang": 620, "omzet": 4500000, "hadiah": 300000,
+			"khusus": {"jenis": "beruntun", "target": 20}},
+		{"nama": "Toko Kebanggaan", "upgrade": ["qris"], "pelanggan": 480, "barang": 850, "omzet": 6500000, "hadiah": 400000,
+			"khusus": {"jenis": "minuman", "target": 50}},
+		{"nama": "Raja Warung", "upgrade": ["cctv"], "pelanggan": 650, "barang": 1150, "omzet": 9500000, "hadiah": 500000,
+			"khusus": {"jenis": "laba_hari", "target": 100000}},
+		{"nama": "Saudagar Kampung", "upgrade": ["genset"], "pelanggan": 850, "barang": 1500, "omzet": 13000000, "hadiah": 600000,
+			"khusus": {"jenis": "multi", "target": 30}},
+		{"nama": "Pengusaha Desa", "upgrade": ["tv_warung"], "pelanggan": 1000, "barang": 1800, "omzet": 16000000, "hadiah": 800000,
+			"khusus": {"jenis": "minuman", "target": 90}},
+		{"nama": "Legenda Warung Kampung", "upgrade": ["wifi"], "pelanggan": 1200, "barang": 2150, "omzet": 21000000, "hadiah": 1000000,
+			"khusus": {"jenis": "laba_hari", "target": 150000}}
+	]
+}

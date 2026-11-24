@@ -1,0 +1,1956 @@
+{
+	"_keterangan": "Cerita warga (event non-acak) di mode jalan-jalan, dijalankan scripts/jelajah.gd. Warga cerita berdiri di 'posisi' (koordinat gambar area) pada jam [mulai, selesai) mulai hari 'hari_min', ditandai titik merah di atas kepala; pemain mendekat lalu menekan 'Sapa'. tahap = urutan bagian cerita (bisa pindah area/tokoh). siapa di dialog: bapak, id tipe warga (anak, nenek, petani, santri_putih, ...), id tokoh (haji_doni, pak_rt), atau kosong (narasi). pilihan.opsi.aksi: tolong / tolak = cerita selesai dengan hasil itu, lanjut = ke tahap berikutnya, ulang = jawaban salah (tetap di tahap ini), tunda = nanti saja. biaya = uang yang dibayar kalau memilih opsi ini. maju_menit = waktu berjalan (misalnya membantu bekerja). pergi_ke = [[x, y], ...] warga itu berjalan pergi lalu hilang; hilang = true warga itu langsung memudar hilang (misalnya kucing digendong). perjalanan = {teks, menit, langkah (true = suara langkah kaki), detik} layar gelap berisi keterangan, misalnya Pak Misran kembali ke warung mengambil obat; sesudahnya dialog_sesudah. hasil.tolong/tolak: bintang = naik sekian bintang, reputasi = tambah/kurang poin (0-100), buka = barang yang terbuka, pelanggan = pengali seberapa sering tipe itu datang ke warung (0,4 = jarang, 1,5 = lebih sering), popup = isi pop-up hasil (judul, isi, daftar, gambar). obrolan = percakapan pengganti saat menyapa warga itu di jalan sesudah cerita selesai (format sama dengan warga.json). tetap = sesudah cerita selesai tokoh ini tetap berdiri di sana dan bisa disapa (obrolan dari bagian obrolan). akrab: false = cerita ini tidak mengubah keakraban warga yang terlibat. jika_uang_cukup / jika_uang_kurang (di opsi) = pilihan hanya tampil kalau uang >= / < angka itu. hasil.chat = pesan Wasap sesudah cerita selesai: [[pengirim, teks, kontak]] (kontak: rt, agus, juragan, sales). tahap.gendong = id tipe tokoh (kucing) yang dipeluk Pak Misran selama tahap itu. setelah_hasil = cerita ini hanya muncul kalau hasil cerita setelah sama dengan nilai ini. hari_sekolah = awal cerita tidak muncul hari Minggu. bukan_ramadan = awal cerita tidak muncul selama Ramadan. tahap.jam_ketat = tahap lanjutan tetap mengikuti jam. pendamping_sesudah.digendong = penerima langsung menggendong tokoh itu. tahap.pendamping = warga lain yang ikut berdiri di adegan itu. tahap.bawa = berkas model barang (misalnya res://assets/upgrade/kardus_bawa.glb) yang dipeluk Pak Misran selama tahap itu, lepas sendiri saat cerita selesai.",
+	"event": {
+		"ucup_sekolah": {"janji": true, 
+			"level_min": 1,
+			"judul": "Ucup Ingin Sekolah",
+			"hari_min": 1,
+			"hari_sekolah": true,
+			"tahap": [
+				{"area": "sd", "npc": "anak", "posisi": [760, 560], "hadap": [-0.4, 1], "jam": [8, 13],
+					"dialog": [
+						{"siapa": "anak", "teks": "Hhh... enak ya jadi mereka. Masih bisa sekolah..."},
+						{"siapa": "bapak", "teks": "Lho, Ucup? Kok sendirian di lapangan? Jam segini kamu nggak masuk kelas?"},
+						{"siapa": "anak", "teks": "Ucup sudah nggak sekolah lagi, Pak Misran..."},
+						{"siapa": "bapak", "teks": "Astagfirullah! Nggak sekolah lagi? Kenapa, Cup?"},
+						{"siapa": "anak", "teks": "Bapak sama Ibu Ucup sudah meninggal waktu Ucup kelas dua. Sekarang Ucup cuma tinggal sama Nenek Sumi."},
+						{"siapa": "anak", "teks": "Nenek sudah tua, Pak. Uangnya cuma dari jualan rengginang. Seragam Ucup sudah kekecilan, buku nggak punya, uang sekolah nunggak terus..."},
+						{"siapa": "anak", "teks": "Jadi Ucup berhenti saja, kasihan Nenek. Tapi tiap siang Ucup ke sini, lihat teman-teman belajar dari luar jendela."},
+						{"siapa": "", "teks": "Pak Misran terdiam. Ia teringat Agus, yang dulu juga hampir putus sekolah."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Biaya sekolah, seragam, dan buku Ucup kira-kira Rp200.000. Bantu Ucup?)"},
+						"opsi": [
+							{"teks": "Bantu biaya sekolah Ucup (Rp200.000)", "biaya": 200000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Cup, besok kamu sekolah lagi, ya. Uang sekolah, seragam, sama bukunya biar Bapak yang urus."},
+								{"siapa": "anak", "teks": "Beneran, Pak?! Ucup... Ucup boleh sekolah lagi?"},
+								{"siapa": "bapak", "teks": "Boleh. Tapi janji, belajar yang rajin. Bilang ke Nenek, jangan khawatir lagi."},
+								{"siapa": "anak", "teks": "Janji, Pak! Makasih, Pak Misran! Nanti Ucup mau jadi dokter, biar bisa ngobatin Nenek!"},
+								{"siapa": "", "teks": "Kabar kebaikan Pak Misran cepat menyebar ke seluruh kampung."}
+							]},
+							{"teks": "Maaf, belum bisa membantu", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Cup... Bapak sendiri lagi pas-pasan. Uang warung juga buat kuliah Agus."},
+								{"siapa": "anak", "teks": "Nggak apa-apa, Pak... Ucup ngerti, kok."},
+								{"siapa": "", "teks": "Ucup tersenyum kecil, lalu kembali menatap ke arah kelas."}
+							]},
+							{"teks": "Nanti Bapak pikirkan dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Cup, Bapak pikirkan dulu, ya. Nanti Bapak cari kamu lagi di sini."},
+								{"siapa": "anak", "teks": "Iya, Pak. Ucup biasanya di sini sampai siang."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"bintang": 1, "buka": ["buku_tulis"], "pelanggan": {"anak": 1.3, "nenek": 1.3},
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/buku_tulis.png", "isi": "Ucup bisa sekolah lagi. Anak-anak sekolah mulai membeli buku tulis di warung Pak Misran.",
+						"daftar": ["Buku tulis sekarang bisa dijual", "Reputasi warung naik 1 bintang", "Ucup dan Nenek Sumi jadi langganan setia"]}},
+				"tolak": {"pelanggan": {"anak": 0.4},
+					"popup": {"judul": "Ucup Kecewa", "isi": "Pak Misran tidak membantu biaya sekolah Ucup.",
+						"daftar": ["Ucup jadi jarang mampir ke warung", "Pelanggan anak kecil lebih jarang datang"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"anak": [
+						[{"siapa": "warga", "teks": "Pak Misran! Tadi Ucup dapat nilai sembilan di ulangan IPA!"}, {"siapa": "bapak", "teks": "Masyaallah, pinter! Pertahankan, Cup."}],
+						[{"siapa": "warga", "teks": "Seragam baru Ucup wangi, Pak. Kata Nenek harus dijaga baik-baik."}, {"siapa": "bapak", "teks": "Betul kata Nenek. Rajin belajarnya, ya."}]
+					],
+					"nenek": [
+						[{"siapa": "warga", "teks": "Pak Misran, terima kasih sudah menolong cucu saya. Semoga Allah membalas berlipat-lipat."}, {"siapa": "bapak", "teks": "Aamiin, Nek. Ucup anak baik, sayang kalau tidak sekolah."}]
+					]
+				},
+				"tolak": {
+					"anak": [
+						[{"siapa": "warga", "teks": "Siang, Pak... Ucup lagi bantu Nenek jualan rengginang."}, {"siapa": "bapak", "teks": "Yang semangat, Cup. Semoga laris, ya."}],
+						[{"siapa": "warga", "teks": "Pak, kalau sudah besar Ucup mau kerja, biar bisa sekolah lagi."}, {"siapa": "bapak", "teks": "Aamiin. Jangan putus harapan, Cup."}]
+					]
+				}
+			}
+		},
+		"beras_abah_karta": {
+			"level_min": 1,
+			"judul": "Beras Abah Karta",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "sawah", "npc": "petani", "posisi": [380, 512], "hadap": [1, 0.4], "jam": [7, 17],
+					"dialog": [
+						{"siapa": "petani", "teks": "Aduh, Pak Misran... pusing saya. Panen tahun ini bagus, berasnya banyak."},
+						{"siapa": "bapak", "teks": "Lho, panen bagus kok malah pusing, Abah?"},
+						{"siapa": "petani", "teks": "Tengkulak cuma mau beli murah sekali, Pak. Saya mau jual sendiri, tapi nggak ada tempatnya."},
+						{"siapa": "petani", "teks": "Kata orang, kalau mau titip jual di warung kampung harus ada surat keterangan dari Pak RT. Saya sungkan ke sana, nggak pandai ngomong."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu Abah Karta mengurus surat ke Pak RT?)"},
+						"opsi": [
+							{"teks": "Bantu, biar saya temui Pak RT", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Tenang, Abah. Biar saya yang bicara ke Pak RT. Biasanya beliau ada di pos ronda."},
+								{"siapa": "petani", "teks": "Alhamdulillah... Hatur nuhun, Pak Misran!"},
+								{"siapa": "", "teks": "Temui Pak RT di depan pos ronda (area Rumah Warga), lalu kembali ke Abah Karta."}
+							]},
+							{"teks": "Maaf, saya sedang sibuk", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Abah, warung saya lagi repot. Coba minta tolong orang lain dulu, ya."},
+								{"siapa": "petani", "teks": "Oh... iya, Pak. Nggak apa-apa."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Nanti saya pikirkan dulu ya, Abah."},
+								{"siapa": "petani", "teks": "Mangga, Pak. Saya di sawah sampai sore."}
+							]}
+						]
+					}
+				},
+				{"misi": "Minta surat keterangan ke Pak RT untuk Abah Karta", "area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "pak_rt", "teks": "Eh, Pak Misran. Tumben mampir ke pos ronda. Ada perlu apa?"},
+						{"siapa": "bapak", "teks": "Begini, Pak RT. Abah Karta mau titip jual beras hasil panennya di warung saya."},
+						{"siapa": "pak_rt", "teks": "Oh, boleh-boleh saja, Pak."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "pak_rt", "teks": "Sebelumnya saya ingin bertanya, beras titipan itu harusnya dijual dengan cara apa?"},
+						"opsi": [
+							{"teks": "Dicampur beras murah biar untung banyak", "aksi": "ulang", "dialog": [
+								{"siapa": "pak_rt", "teks": "Waduh, itu namanya curang, Pak Misran. Coba dipikir lagi."}
+							]},
+							{"teks": "Ditimbang pas dan harganya wajar", "aksi": "lanjut", "dialog": [
+								{"siapa": "pak_rt", "teks": "Nah, betul! Timbangannya jujur, harganya wajar. Warga senang, Abah Karta juga untung."},
+								{"siapa": "pak_rt", "teks": "Ini surat keterangannya, Pak. Sampaikan salam saya ke Abah Karta."},
+								{"siapa": "", "teks": "Kembali ke sawah dan temui Abah Karta."}
+							]},
+							{"teks": "Dijual semahal mungkin", "aksi": "ulang", "dialog": [
+								{"siapa": "pak_rt", "teks": "Kalau kemahalan, kasihan warga, Pak. Coba dipikir lagi."}
+							]}
+						]
+					}
+				},
+				{"misi": "Kasih surat dari Pak RT ke Abah Karta", "area": "sawah", "npc": "petani", "posisi": [380, 512], "hadap": [1, 0.4], "jam": [7, 17],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Abah, ini surat dari Pak RT. Beras Abah boleh dijual di warung saya."},
+						{"siapa": "petani", "teks": "Masyaallah! Terima kasih, Pak Misran. Mulai besok beras saya antar ke warung, harganya bersahabat."},
+						{"siapa": "petani", "teks": "Lima karung pertama gratis buat Bapak. Anggap saja tanda terima kasih."}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["beras"], "reputasi": 3,
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/beras.png", "isi": "Abah Karta menitipkan beras hasil panennya di warung.",
+						"daftar": ["Beras 1 kg sekarang bisa dijual", "Bonus stok beras dari Abah Karta", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {"reputasi": -4,
+					"popup": {"judul": "Abah Karta Kecewa", "isi": "Pak Misran tidak membantu Abah Karta.",
+						"daftar": ["Reputasi -4", "Beras belum bisa dijual di warung"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"petani": [
+						[{"siapa": "warga", "teks": "Pak Misran! Beras saya laku keras di warung Bapak. Alhamdulillah."}, {"siapa": "bapak", "teks": "Alhamdulillah, Abah. Berasnya memang pulen."}],
+						[{"siapa": "warga", "teks": "Kemarin Pak RT nanya, beras saya masih ada? Katanya enak."}, {"siapa": "bapak", "teks": "Wah, mantap, Abah. Nanti saya siapkan buat beliau."}]
+					]
+				},
+				"tolak": {
+					"petani": [
+						[{"siapa": "warga", "teks": "Pak... saya akhirnya jual ke tengkulak. Ya sudah, rezekinya segitu."}, {"siapa": "bapak", "teks": "Semoga panen berikutnya lebih baik, Abah."}]
+					]
+				}
+			}
+		},
+		"pengajian_haji_doni": {
+			"level_min": 2,
+			"judul": "Persiapan Pengajian",
+			"hari_min": 2,
+			"tahap": [
+				{"area": "masjid", "npc": "haji_doni", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [7, 17],
+					"dialog": [
+						{"siapa": "haji_doni", "teks": "Assalamualaikum, Pak Misran. Kebetulan sekali Bapak lewat."},
+						{"siapa": "bapak", "teks": "Waalaikumsalam, Haji Doni. Kelihatannya sibuk sekali?"},
+						{"siapa": "haji_doni", "teks": "Sebentar lagi ada pengajian akbar, ustadznya datang dari Cianjur kota. Tempat wudhunya belum disikat, karpet juga belum digelar."},
+						{"siapa": "haji_doni", "teks": "Anak-anak remaja masjid lagi ikut lomba ke kecamatan. Saya sendirian, encok saya kambuh pula."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "haji_doni", "teks": "Bapak bisa bantu sebentar? Kira-kira satu jam."},
+						"opsi": [
+							{"teks": "Bantu Haji Doni (1 jam)", "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Tentu, Haji Doni. Bapak duduk saja, biar saya yang kerjakan."}
+							],
+							"perjalanan": {"teks": "Pak Misran menyikat lantai tempat wudhu, mengelap keran, lalu menggelar karpet di dalam masjid...", "menit": 60, "langkah": false},
+							"dialog_sesudah": [
+								{"siapa": "haji_doni", "teks": "Masyaallah, bersih sekali. Jazakallah khair, Pak Misran."},
+								{"siapa": "haji_doni", "teks": "Oh iya, istri saya punya kebun cabai, bawang, dan tomat di belakang rumah. Hasilnya sering kebanyakan."},
+								{"siapa": "haji_doni", "teks": "Bagaimana kalau dititip jual di warung Bapak saja? Harganya bersahabat, insyaallah."}
+							]},
+							{"teks": "Maaf, saya sedang ada perlu", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Aduh, maaf, Haji Doni. Saya sedang ada perlu."},
+								{"siapa": "haji_doni", "teks": "Tidak apa-apa, Pak Misran. Semoga dagangannya laris. Nanti datang ke pengajian, ya."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Nanti saya ke sini lagi ya, Haji Doni."},
+								{"siapa": "haji_doni", "teks": "Baik, saya di sini sampai sore."}
+							]}
+						]
+					}
+				}
+			],
+			"tetap": {"area": "masjid", "npc": "haji_doni", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [7, 17]},
+			"hasil": {
+				"tolong": {"buka": ["sayur"], "reputasi": 3,
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/sayur.png", "isi": "Kebun Bu Haji menitipkan hasil panennya di warung.",
+						"daftar": ["Sayuran (cabai, bawang, tomat) sekarang bisa dijual", "Bonus stok sayuran", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Lain Kali, Ya", "isi": "Haji Doni memaklumi, Pak Misran sedang sibuk.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"haji_doni": [
+						[{"siapa": "warga", "teks": "Pak Misran, jamaah memuji tempat wudhunya bersih sekali. Terima kasih, ya."}, {"siapa": "bapak", "teks": "Sama-sama, Haji Doni. Senang bisa membantu."}],
+						[{"siapa": "warga", "teks": "Sayuran dari kebun istri saya laku di warung Bapak? Alhamdulillah."}, {"siapa": "bapak", "teks": "Laku, Haji Doni. Ibu-ibu senang, masih segar katanya."}]
+					]
+				},
+				"tolak": {
+					"haji_doni": [
+						[{"siapa": "warga", "teks": "Pengajian kemarin alhamdulillah lancar. Lain kali ikut, ya, Pak Misran."}, {"siapa": "bapak", "teks": "Insyaallah, Haji Doni."}],
+						[{"siapa": "warga", "teks": "Jangan lupa sholat berjamaah, Pak Misran. Warung boleh ramai, masjid juga harus ramai."}, {"siapa": "bapak", "teks": "Siap, Haji Doni. Insyaallah."}]
+					]
+				}
+			}
+		},
+		"surat_kang_hasan": {
+			"level_min": 2,
+			"judul": "Surat untuk Emak",
+			"hari_min": 2,
+			"tahap": [
+				{"area": "pesantren", "npc": "santri_hitam", "posisi": [640, 600], "hadap": [-0.6, 1], "jam": [15, 21],
+					"dialog": [
+						{"siapa": "", "teks": "Kang Hasan berdiri sendirian di halaman pesantren, menggenggam selembar surat yang sudah lusuh."},
+						{"siapa": "bapak", "teks": "Assalamualaikum, Kang Hasan. Kok melamun sendirian?"},
+						{"siapa": "santri_hitam", "teks": "Waalaikumsalam, Pak Misran. Ini... surat terakhir dari Emak saya."},
+						{"siapa": "santri_hitam", "teks": "Emak meninggal tahun lalu, Pak. Waktu itu saya nggak bisa pulang, nggak ada ongkos. Saya cuma bisa mendoakan dari sini."},
+						{"siapa": "santri_hitam", "teks": "Di surat ini Emak minta saya jadi hafiz. Tinggal lima juz lagi... tapi akhir-akhir ini hafalan saya sering hilang."},
+						{"siapa": "santri_hitam", "teks": "Kang Fadil, sahabat saya dari kecil, sudah dua hari demam. Saya yang merawat, tapi uang kiriman bulan ini sudah habis buat beras pondok."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Apa yang dilakukan Pak Misran?)"},
+						"opsi": [
+							{"teks": "Bawakan obat & temani mereka (Rp20.000)", "biaya": 20000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Tunggu sebentar ya, Kang. Bapak ambilkan obat di warung."}
+							],
+							"perjalanan": {"teks": "Pak Misran kembali ke warung dan mengambil obat demam, teh hangat, dan roti...", "menit": 20},
+							"dialog_sesudah": [
+								{"siapa": "", "teks": "Pak Misran datang lagi ke pesantren membawa obat demam, teh hangat, dan roti."},
+								{"siapa": "bapak", "teks": "Ini buat Kang Fadil. Diminum sesudah makan, ya. Kalau ada perlu apa-apa, datang saja ke warung."},
+								{"siapa": "", "teks": "Di kamar santri, Kang Fadil meminum obatnya dan berterima kasih dengan suara pelan."},
+								{"siapa": "bapak", "teks": "Kang Hasan, Emakmu pasti bangga punya anak sepertimu. Mulai sekarang, anggap Bapak orang tuamu di kampung ini."},
+								{"siapa": "santri_hitam", "teks": "Pak... (menangis) Insyaallah saya selesaikan hafalan saya. Untuk Emak."},
+								{"siapa": "", "teks": "Malam itu, lantunan ayat Kang Hasan terdengar lebih merdu dari biasanya."}
+							]},
+							{"teks": "Doakan, lalu pamit", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Sabar ya, Kang. Bapak doakan Kang Fadil cepat sembuh dan hafalanmu lancar."},
+								{"siapa": "santri_hitam", "teks": "Aamiin. Terima kasih, Pak Misran."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Kang, Bapak ke warung dulu sebentar, ya."},
+								{"siapa": "santri_hitam", "teks": "Iya, Pak. Saya di sini sampai Isya."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["obat"], "reputasi": 3, "pelanggan": {"santri_putih": 1.5, "santri_hitam": 1.5},
+					"popup": {"judul": "Hati yang Tersentuh", "gambar": "res://assets/barang/obat.png", "isi": "Ustadz pesantren mendengar kebaikan Pak Misran dan memintanya menyediakan obat warung untuk para santri.",
+						"daftar": ["Obat warung sekarang bisa dijual", "Santri lebih sering belanja di warung", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Pak Misran mendoakan Kang Hasan dan Kang Fadil.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"santri_hitam": [
+						[{"siapa": "warga", "teks": "Pak Misran! Alhamdulillah hafalan saya sudah nambah dua juz."}, {"siapa": "bapak", "teks": "Masyaallah, Kang Hasan. Emakmu pasti tersenyum di sana."}],
+						[{"siapa": "warga", "teks": "Pak, nanti kalau saya khatam, Bapak datang ke wisudanya, ya. Bapak kan sudah seperti orang tua saya."}, {"siapa": "bapak", "teks": "Insyaallah, Kang. Bapak pasti datang."}]
+					],
+					"santri_putih": [
+						[{"siapa": "warga", "teks": "Pak, saya sudah sehat. Obat dari Bapak manjur sekali."}, {"siapa": "bapak", "teks": "Alhamdulillah, Kang Fadil. Jaga kesehatan, ya."}]
+					]
+				},
+				"tolak": {
+					"santri_hitam": [
+						[{"siapa": "warga", "teks": "Pak, Kang Fadil sudah sembuh. Kemarin dibantu ustadz."}, {"siapa": "bapak", "teks": "Alhamdulillah. Maaf ya, Kang, kemarin Bapak belum bisa banyak membantu."}]
+					]
+				}
+			}
+		},
+		"layangan_dimas": {"janji": true, 
+			"level_min": 1,
+			"judul": "Layangan Dimas",
+			"hari_min": 3,
+			"tahap": [
+				{"area": "sawah", "npc": "pelajar", "posisi": [948, 516], "hadap": [-1, -0.2], "jam": [14, 18], "_posisi": "Di rumput kanan ujung jembatan (dulu [560, 514] di tengah jalan setapak ke saung, menghalangi pemain).",
+					"dialog": [
+						{"siapa": "", "teks": "Dimas berdiri di pematang sawah sambil menatap ke atas pohon kelapa. Benang layangan menjuntai dari pelepahnya."},
+						{"siapa": "bapak", "teks": "Lho, Dimas? Kok bengong di sini?"},
+						{"siapa": "pelajar", "teks": "Layangan saya nyangkut, Pak Misran... Ini layangan buatan almarhum Kakek. Satu-satunya yang masih ada."},
+						{"siapa": "pelajar", "teks": "Saya sudah coba lempar pakai sandal, malah sandalnya ikut nyangkut. Hehe..."},
+						{"siapa": "pelajar", "teks": "Sebentar lagi ada lomba layangan di lapangan SD. Kalau layangannya rusak, saya nggak bisa ikut."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu ambilkan layangan Dimas?)"},
+						"opsi": [
+							{"teks": "Ambilkan pakai galah bambu (30 menit)", "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Sabar, Dim. Di saung biasanya ada galah bambu. Bapak coba, ya."}
+							],
+							"perjalanan": {"teks": "Pak Misran meminjam galah bambu dari saung, lalu pelan-pelan mengait benang layangan di pohon kelapa...", "menit": 30, "langkah": false},
+							"dialog_sesudah": [
+								{"siapa": "", "teks": "Layangan itu turun pelan-pelan, utuh tanpa sobek. Sandal Dimas ikut jatuh ke lumpur. Plok!"},
+								{"siapa": "pelajar", "teks": "Yeay! Makasih banyak, Pak Misran! Sandalnya nggak apa-apa, nanti dicuci."},
+								{"siapa": "bapak", "teks": "Nanti yang semangat lombanya. Main layangannya jauh dari jalan raya dan kabel listrik, ya."},
+								{"siapa": "pelajar", "teks": "Siap, Pak! Nanti kalau menang, saya traktir teman-teman jajan di warung Bapak!"}
+							]},
+							{"teks": "Jangan dipanjat, berbahaya", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Dim, pohonnya tinggi, jangan dipanjat, ya. Bahaya. Minta tolong Abah Karta nanti sore saja."},
+								{"siapa": "pelajar", "teks": "Iya, Pak... (menunduk)"}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Bapak ke warung dulu, ya. Nanti Bapak lewat sini lagi."},
+								{"siapa": "pelajar", "teks": "Iya, Pak. Saya tunggu di sini."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 2, "pelanggan": {"pelajar": 1.5, "siswi": 1.3},
+					"popup": {"judul": "Layangan Kembali Terbang", "isi": "Beberapa hari kemudian layangan Dimas juara dua di lomba. Anak-anak sekolah ramai membicarakan Pak Misran.",
+						"daftar": ["Pelajar lebih sering jajan di warung", "+2 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Pak Misran mengingatkan Dimas supaya berhati-hati.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"pelajar": [
+						[{"siapa": "warga", "teks": "Pak Misran! Layangan Kakek juara dua, lho. Pialanya saya taruh di samping foto Kakek."}, {"siapa": "bapak", "teks": "Masyaallah, hebat, Dim. Kakekmu pasti bangga."}],
+						[{"siapa": "warga", "teks": "Pak, ajarin bikin layangan dong. Kata Ibu, dulu Bapak jago main layangan."}, {"siapa": "bapak", "teks": "Wah, itu sudah lama sekali. Boleh, nanti hari Minggu."}]
+					]
+				},
+				"tolak": {
+					"pelajar": [
+						[{"siapa": "warga", "teks": "Pak, layangan saya akhirnya diambilkan Abah Karta. Sobek sedikit, tapi masih bisa terbang."}, {"siapa": "bapak", "teks": "Syukurlah, Dim. Hati-hati mainnya, ya."}]
+					]
+				}
+			}
+		},
+		"kucing_bu_ida": {
+			"level_min": 1,
+			"judul": "Si Neo Hilang",
+			"hari_min": 4,
+			"tahap": [
+				{"area": "rumah", "npc": "giska", "posisi": [480, 434], "hadap": [1, 0.4], "jam": [8, 18],
+					"dialog": [
+						{"siapa": "giska", "teks": "Pak Misran, ya? Maaf ganggu, Pak... lihat kucing putih krem nggak? Bulunya lebat, namanya Neo."},
+						{"siapa": "giska", "teks": "Saya bawa dia dari kota waktu pindah ke Cianjur. Di kota dia nggak pernah keluar rumah, jadi belum kenal jalan di kampung."},
+						{"siapa": "giska", "teks": "Sudah dua hari nggak pulang. Saya juga belum kenal banyak orang di sini, bingung mau nanya ke siapa."},
+						{"siapa": "bapak", "teks": "Waduh, kasihan. Terakhir dilihat di mana, Mba?"},
+						{"siapa": "giska", "teks": "Kata tetangga sebelah, Neo suka main ke arah masjid. Mungkin dikasih makan sama jamaah."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu mencari si Neo?)"},
+						"opsi": [
+							{"teks": "Saya bantu cari di sekitar masjid", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Biar saya cari, Mba. Kebetulan saya sering lewat masjid."},
+								{"siapa": "giska", "teks": "Beneran, Pak? Makasih banyak, Pak Misran!"},
+								{"siapa": "", "teks": "Cari si Neo di area Masjid. Tanyakan pada Mang Ujang yang sedang bekerja di sana."}
+							]},
+							{"teks": "Maaf, saya sedang sibuk", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Mba, saya sedang sibuk. Coba diumumkan di grup RT, ya. Warga sini baik-baik, pasti ada yang bantu."},
+								{"siapa": "giska", "teks": "Iya, Pak... nanti saya coba."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Nanti kalau lewat masjid saya lihat-lihat, ya, Mba."},
+								{"siapa": "giska", "teks": "Iya, Pak. Saya di sini terus nungguin Neo."}
+							]}
+						]
+					}
+				},
+				{"misi": "Cari Neo di masjid, tanya Mang Ujang", "area": "masjid", "npc": "tukang", "posisi": [360, 722], "hadap": [1, 0.3], "jam": [7, 18],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Mang Ujang, lihat kucing putih krem yang bulunya lebat, nggak?"},
+						{"siapa": "tukang", "teks": "Oh, kucing putih yang bulunya lebat itu? Ada, Pak! Dari kemarin ngumpet di dekat sini, nggak mau pergi."},
+						{"siapa": "tukang", "teks": "Kakinya kayaknya keseleo. Sudah saya kasih ikan asin sedikit, kasihan. Itu dia, Pak, di dekat bedug!"},
+						{"siapa": "", "teks": "Cari si Neo di dekat bedug masjid (ada tanda merah di atasnya)."}
+					],
+					"aksi": "lanjut"
+				},
+				{"misi": "Ambil Neo di dekat bedug masjid", "area": "masjid", "npc": "kucing", "posisi": [905, 578], "hadap": [-1, 0.5], "jam": [7, 18], "tombol": "Bawa Neo",
+					"dialog": [
+						{"siapa": "", "teks": "Si Neo meringkuk, kaki depannya diangkat sedikit. Ia mengeong pelan melihat Pak Misran."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Apa yang dilakukan Pak Misran?)"},
+						"opsi": [
+							{"teks": "Bawa Neo pelan-pelan dan antar pulang", "aksi": "lanjut", "hilang": true, "dialog": [
+								{"siapa": "", "teks": "Pak Misran berjongkok dan mengelus kepalanya. Si Neo mengeong pelan, lalu mau digendong."},
+								{"siapa": "bapak", "teks": "Ayo pulang, Neo. Mba Giska sudah nungguin kamu."},
+								{"siapa": "", "teks": "Antar si Neo ke Mba Giska di area Rumah Warga."}
+							]},
+							{"teks": "Tarik ekornya biar cepat ikut", "aksi": "ulang", "dialog": [
+								{"siapa": "", "teks": "Si Neo mendesis dan mundur. Kakinya sedang sakit, jangan dipaksa."}
+							]}
+						]
+					}
+				},
+				{"misi": "Antar Neo pulang ke Mba Giska", "area": "rumah", "npc": "giska", "posisi": [480, 434], "hadap": [1, 0.4], "jam": [7, 21], "gendong": "kucing",
+					"pendamping_sesudah": {"npc": "kucing", "digendong": true},
+					"dialog": [
+						{"siapa": "giska", "teks": "NEO! Ya ampun, Neo! (memeluk kucingnya)"},
+						{"siapa": "bapak", "teks": "Ketemu di masjid, Mba. Kakinya keseleo sedikit, dikompres air hangat saja."},
+						{"siapa": "giska", "teks": "Di kota, tetangga sebelah saja nggak saling kenal, Pak. Di sini saya belum lama, tapi sudah ditolong begini..."},
+						{"siapa": "giska", "teks": "Makasih banyak, Pak Misran. Mulai sekarang saya belanja di warung Bapak terus, ya!"}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 2, "buka": ["makanan_kucing"], "pelanggan": {"giska": 1.6},
+					"popup": {"judul": "Si Neo Pulang!", "gambar": "res://assets/barang/makanan_kucing.png", "isi": "Mba Giska bercerita di grup RT bahwa Pak Misran menemukan kucingnya. Warga baru dari kota itu jadi langganan setia warungmu.",
+						"daftar": ["Makanan kucing sekarang bisa dijual (Mba Giska yang menyarankan)", "Mba Giska lebih sering belanja di warung", "+2 ulasan bintang 5 dari warga", "Neo sekarang suka main di sekitar Rumah Warga, pukul 07.00-21.00 (tidak keluar saat hujan). Sapa dan beri makan dia di sana"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Mba Giska mengumumkan kucingnya yang hilang di grup RT.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"giska": [
+						[{"siapa": "warga", "teks": "Pak Misran, si Neo sudah lincah lagi. Sekarang dia suka tidur di depan pintu, nungguin saya pulang kerja."}, {"siapa": "bapak", "teks": "Alhamdulillah, Mba. Jangan sampai main jauh-jauh lagi, ya."}],
+						[{"siapa": "warga", "teks": "Pak, ikan asin di warung masih ada? Buat Neo, katanya sudah ketagihan gara-gara Mang Ujang."}, {"siapa": "bapak", "teks": "Hehe, nanti saya tanyakan ke supplier, Mba."}],
+						[{"siapa": "warga", "teks": "Ternyata tinggal di kampung enak juga, Pak. Pagi-pagi udaranya segar, nggak kayak di kota."}, {"siapa": "bapak", "teks": "Betah-betah di sini, Mba Giska."}]
+					],
+					"tukang": [
+						[{"siapa": "warga", "teks": "Pak, kucing putih kemarin sudah pulang, ya? Bedugnya jadi sepi, hehe."}, {"siapa": "bapak", "teks": "Sudah, Mang. Makasih sudah dikasih makan."}]
+					]
+				},
+				"tolak": {
+					"giska": [
+						[{"siapa": "warga", "teks": "Pak, si Neo akhirnya pulang sendiri, kakinya pincang. Alhamdulillah masih ketemu."}, {"siapa": "bapak", "teks": "Syukurlah, Mba. Maaf kemarin saya belum sempat bantu."}]
+					]
+				}
+			}
+		},
+		"lomba_shinta": {"janji": true, 
+			"level_min": 3,
+			"judul": "Hadiah Lomba HUT Sekolah",
+			"hari_min": 3,
+			"hari_sekolah": true,
+			"setelah": "ucup_sekolah",
+			"tahap": [
+				{"area": "sd", "npc": "siswi", "posisi": [900, 600], "hadap": [-1, 0.3], "jam": [13, 17],
+					"dialog": [
+						{"siapa": "siswi", "teks": "Pak Misran! Kebetulan banget. Saya Shinta, yang suka beli pulsa di warung Bapak."},
+						{"siapa": "bapak", "teks": "Oh, Neng Shinta. Lagi apa di SD? Bukannya sudah SMP?"},
+						{"siapa": "siswi", "teks": "Hehe, saya alumni sini, Pak. Sekarang bantu Bu Guru jadi panitia lomba HUT sekolah buat adik-adik SD."},
+						{"siapa": "siswi", "teks": "Lombanya sudah siap semua: balap karung, makan kerupuk, tarik tambang. Tapi hadiahnya belum ada, uang kas sekolah nggak cukup."},
+						{"siapa": "siswi", "teks": "Kalau warung Bapak mau jadi sponsor, nanti nama warungnya kami tulis besar-besar di spanduk lomba, lho!"}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Hadiah lomba untuk adik-adik SD kira-kira Rp100.000. Jadi sponsor?)"},
+						"opsi": [
+							{"teks": "Jadi sponsor lomba (Rp100.000)", "biaya": 100000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Boleh, Neng. Belikan buku tulis, pensil, sama piala kecil buat juaranya. Yang kalah juga kasih permen, ya."},
+								{"siapa": "siswi", "teks": "Yeay! Makasih, Pak Misran! Adik-adik pasti senang banget."},
+								{"siapa": "", "teks": "Neng Shinta bergegas memberi kabar ke Bu Guru. Nama warung Pak Misran akan dipasang di spanduk lomba."}
+							]},
+							{"teks": "Maaf, belum bisa membantu", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Neng. Uang warung lagi dipakai buat kuliah Agus."},
+								{"siapa": "siswi", "teks": "Nggak apa-apa, Pak. Nanti saya coba tanya ke toko yang lain."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Bapak pikirkan dulu ya, Neng."},
+								{"siapa": "siswi", "teks": "Iya, Pak. Saya di sini tiap pulang sekolah sampai sore."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3, "pelanggan": {"anak": 1.3, "siswi": 1.4, "pelajar": 1.2},
+					"popup": {"judul": "Warung Jadi Sponsor!", "isi": "Nama warung Pak Misran terpampang di spanduk lomba HUT SD. Anak-anak dan orang tua makin kenal warungmu.",
+						"daftar": ["Anak sekolah lebih sering mampir ke warung", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Neng Shinta mencari sponsor di tempat lain. Lombanya tetap jalan, hadiahnya patungan para guru.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"siswi": [
+						[{"siapa": "warga", "teks": "Pak, adik-adik SD masih ngomongin hadiah lomba kemarin. Bukunya dipakai buat sekolah, katanya!"}, {"siapa": "bapak", "teks": "Alhamdulillah, Neng. Bapak ikut senang."}],
+						[{"siapa": "warga", "teks": "Bu Guru titip salam, Pak. Katanya tahun depan minta tolong jadi sponsor lagi, hehe."}, {"siapa": "bapak", "teks": "Insyaallah, Neng. Kalau rezekinya ada."}]
+					],
+					"anak": [
+						[{"siapa": "warga", "teks": "Pak Misran! Aku menang balap karung, hadiahnya buku tulis dari warung Bapak!"}, {"siapa": "bapak", "teks": "Wah, hebat! Dipakai buat belajar, ya."}]
+					]
+				},
+				"tolak": {
+					"siswi": [
+						[{"siapa": "warga", "teks": "Lombanya jadi juga, Pak. Hadiahnya patungan guru-guru."}, {"siapa": "bapak", "teks": "Syukurlah, Neng."}]
+					]
+				}
+			}
+		},
+		"kasbon_bu_ida": {"janji": true, 
+			"level_min": 4,
+			"hari_pasar": true, "judul": "Kasbon Bu Ida",
+			"hari_min": 6,
+			"tahap": [
+				{"area": "pasar", "npc": "ibu_rumah_tangga", "posisi": [640, 508], "hadap": [0.35, 1], "_posisi": "7 Nov: 12 Nov (user): cerita yang berhubungan dengan pasar dipindah ke Pasar, di lapak Bu Ida (dulu malam di depan rumahnya / sawah).", "jam": [8, 20.5],
+					"dialog": [
+						{"siapa": "", "teks": "Bu Ida duduk di lapaknya. Keranjang buahnya masih setengah penuh."},
+						{"siapa": "ibu_rumah_tangga", "teks": "Eh, Pak Misran... Pasar lagi sepi, Pak. Buah saya banyak yang nggak laku."},
+						{"siapa": "ibu_rumah_tangga", "teks": "Padi suami saya juga kena wereng. Separuh sawah gagal panen."},
+						{"siapa": "bapak", "teks": "Innalillahi... Sabar ya, Bu Ida."},
+						{"siapa": "ibu_rumah_tangga", "teks": "Beras di rumah tinggal sedikit, anak-anak juga mau ujian. Suami saya malu mau ngutang ke warung."},
+						{"siapa": "ibu_rumah_tangga", "teks": "Pak... boleh saya kasbon dulu? Beras, telur, sama minyak, kira-kira Rp60.000. Nanti saya lunasi kalau dagangan di pasar sudah ramai lagi."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Berikan kasbon kebutuhan dapur Rp60.000 untuk Bu Ida?)"},
+						"opsi": [
+							{"teks": "Berikan kasbon (Rp60.000)", "biaya": 60000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ambil saja di warung, Bu. Bayarnya nanti kalau sudah ada, saya catat di Buku Hutang."},
+								{"siapa": "ibu_rumah_tangga", "teks": "Ya Allah... hatur nuhun pisan, Pak Misran. Saya nggak akan lupa."},
+								{"siapa": "", "teks": "Bu Ida bercerita ke ibu-ibu pengajian tentang kebaikan Pak Misran. Kasbonnya dicatat di Buku Hutang."}
+							]},
+							{"teks": "Maaf, warung belum bisa kasbon", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Bu. Warung saya juga lagi pas-pasan, belum bisa kasbon."},
+								{"siapa": "ibu_rumah_tangga", "teks": "Iya, Pak, saya ngerti... Nanti saya coba tanya ke saudara."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Saya hitung uang warung dulu ya, Bu. Nanti saya ke sini lagi."},
+								{"siapa": "ibu_rumah_tangga", "teks": "Iya, Pak. Saya di lapak sampai pasar tutup, jam sembilan malam."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"hutang": {"tipe": "ibu_rumah_tangga", "jumlah": 60000, "tempo": 14}, "reputasi": 3, "pelanggan": {"ibu_rumah_tangga": 1.4, "petani": 1.2},
+					"popup": {"judul": "Kasbon yang Berkah", "isi": "Kabar kebaikan Pak Misran menyebar dari mulut ke mulut. Ibu-ibu dan petani makin percaya pada warungmu.",
+						"daftar": ["Kasbon Rp60.000 dicatat di Buku Hutang (dilunasi 14 hari lagi)", "Ibu-ibu dan petani lebih sering belanja di warung", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Bu Ida meminjam beras dari saudaranya.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"ibu_rumah_tangga": [
+						[{"siapa": "warga", "teks": "Pak Misran, suami saya sudah dapat kerja borongan. Alhamdulillah, kasbonnya sudah lunas, ya, Pak."}, {"siapa": "bapak", "teks": "Alhamdulillah, Bu. Semoga panen berikutnya bagus."}],
+						[{"siapa": "warga", "teks": "Anak-anak saya lulus ujian semua, Pak. Hatur nuhun, berkat beras dari warung Bapak."}, {"siapa": "bapak", "teks": "Masyaallah, ikut senang, Bu Ida."}]
+					]
+				},
+				"tolak": {
+					"ibu_rumah_tangga": [
+						[{"siapa": "warga", "teks": "Panen kemarin memang berat, Pak. Tapi alhamdulillah ada saudara yang bantu."}, {"siapa": "bapak", "teks": "Syukurlah, Bu. Semoga panen berikutnya lebih baik."}]
+					]
+				}
+			}
+		},
+		"surat_nenek_sumi": {"janji": true, 
+			"level_min": 2,
+			"judul": "Surat dari Cucu",
+			"hari_min": 5,
+			"tahap": [
+				{"area": "rumah", "npc": "nenek", "posisi": [585, 470], "hadap": [1, 0.4], "jam": [9, 17],
+					"dialog": [
+						{"siapa": "", "teks": "Nenek Sumi berdiri di depan rumahnya, memegang amplop putih dekat sekali ke wajahnya."},
+						{"siapa": "nenek", "teks": "Nak Misran... sini sebentar. Ini surat dari cucu Nenek, si Rara, yang kuliah di Jakarta."},
+						{"siapa": "nenek", "teks": "Mata Nenek sudah rabun, tulisannya kecil-kecil. Ucup lagi nggak di rumah, padahal Nenek sudah nggak sabar pengin tahu isinya."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bacakan surat untuk Nenek Sumi?)"},
+						"opsi": [
+							{"teks": "Bacakan suratnya", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Boleh, Nek. Sini saya bacakan pelan-pelan."},
+								{"siapa": "", "teks": "\"Assalamualaikum, Nenek sayang. Rara sehat di Jakarta. Kuliah keperawatan Rara lancar, nilai Rara bagus semua.\""},
+								{"siapa": "", "teks": "\"Rara kangen rengginang buatan Nenek. Kangen dipijitin Nenek sebelum tidur. Tunggu Rara pulang Lebaran nanti, ya, Nek.\""},
+								{"siapa": "", "teks": "\"Kalau Rara sudah jadi perawat, Rara yang gantian merawat Nenek. Nenek jangan capek-capek, ya.\""},
+								{"siapa": "nenek", "teks": "(terisak) Cucu Nenek... sudah besar, ya. Dulu masih Nenek gendong ke sawah."},
+								{"siapa": "nenek", "teks": "Nak Misran... Nenek pengin dengar suaranya. Sudah setahun Nenek nggak dengar suara Rara."}
+							]},
+							{"teks": "Nanti saja, Nek", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Nanti saya mampir lagi ya, Nek. Saya ke warung dulu."},
+								{"siapa": "nenek", "teks": "Iya, Nak. Nenek di sini saja."}
+							]}
+						]
+					}
+				},
+				{"misi": "Bantu Nenek Sumi menelepon cucunya", "area": "rumah", "npc": "nenek", "posisi": [585, 470], "hadap": [1, 0.4], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Nek, di surat ada nomor HP Rara. Bagaimana kalau kita telepon pakai HP saya? Bisa lihat wajahnya juga."},
+						{"siapa": "nenek", "teks": "Bisa begitu, Nak? Nenek nggak ngerti HP..."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Video call Rara dari HP Pak Misran?)"},
+						"opsi": [
+							{"teks": "Video call Rara (pulsa Rp5.000)", "biaya": 5000, "aksi": "tolong", "dialog": [
+								{"siapa": "", "teks": "Tut... tut... Wajah seorang gadis berjilbab biru muncul di layar HP."},
+								{"siapa": "", "teks": "\"Nenek?! Ya Allah, Nenek! Rara kangen banget, Nek!\""},
+								{"siapa": "nenek", "teks": "Raraaa... cucu Nenek. Kamu kurusan, Nak. Makan yang banyak, ya..."},
+								{"siapa": "", "teks": "Nenek Sumi dan Rara mengobrol lama sekali. Pak Misran memegangi HP sambil tersenyum."},
+								{"siapa": "nenek", "teks": "Nak Misran, terima kasih. Hari ini Nenek bahagia sekali. Nanti Nenek bikinkan rengginang buat warungmu."}
+							]},
+							{"teks": "Ajak Nenek menulis surat balasan", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Kalau begitu kita tulis surat balasan saja, Nek. Nenek yang bicara, saya yang menulis."},
+								{"siapa": "nenek", "teks": "Iya, Nak. Bilang ke Rara, Nenek sehat, Nenek bangga..."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3, "buka": ["rengginang"], "pelanggan": {"nenek": 1.5},
+					"popup": {"judul": "Rindu yang Terobati", "gambar": "res://assets/barang/rengginang.png", "isi": "Nenek Sumi bercerita ke seluruh kampung tentang video call dengan cucunya. Warga makin sayang pada Pak Misran.",
+						"daftar": ["Rengginang buatan Nenek Sumi dititipkan di warung", "Nenek Sumi lebih sering mampir ke warung", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {"reputasi": 1,
+					"popup": {"judul": "Surat Balasan", "isi": "Surat balasan Nenek Sumi dikirim lewat kantor pos. Seminggu kemudian Rara membalas lagi.",
+						"daftar": ["+1 ulasan bintang 5 dari warga"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"nenek": [
+						[{"siapa": "warga", "teks": "Nak Misran, kemarin Rara telepon lagi lewat HP tetangga. Katanya salam buat Pak Misran."}, {"siapa": "bapak", "teks": "Waalaikumsalam. Alhamdulillah, Nek."}],
+						[{"siapa": "warga", "teks": "Rengginangnya sudah Nenek jemur. Nanti Nenek titip di warung, ya."}, {"siapa": "bapak", "teks": "Siap, Nek. Pasti laris."}]
+					]
+				},
+				"tolak": {
+					"nenek": [
+						[{"siapa": "warga", "teks": "Rara sudah balas surat Nenek, Nak. Nanti tolong bacakan lagi, ya."}, {"siapa": "bapak", "teks": "Tentu, Nek. Kapan saja."}]
+					]
+				}
+			}
+		},
+		"tipu_fariz": {"janji": true, 
+			"level_min": 6,
+			"judul": "Program Bantuan Warung",
+			"hari_min": 10,
+			"akrab": false,
+			"tahap": [
+				{"area": "warung", "npc": "fariz", "posisi": [430, 600], "hadap": [1, -0.2], "jam": [10, 16],
+					"dialog": [
+						{"siapa": "", "teks": "Seorang pemuda berkaus hitam dan bercelana pendek menghampiri Pak Misran di depan warung. Senyumnya ramah, ponselnya tidak lepas dari tangan."},
+						{"siapa": "fariz", "teks": "Assalamualaikum, Pak. Dengan Pak Misran, pemilik Warung {warung}? Perkenalkan, saya Fariz dari Bandung, petugas lapangan Program Warung Mitra Sejahtera."},
+						{"siapa": "fariz", "teks": "Ini program bantuan untuk warung kecil dari distributor minuman, kerja sama dengan kecamatan. Warung yang terpilih dapat dana bantuan Rp1.000.000, plus spanduk gratis."},
+						{"siapa": "bapak", "teks": "Satu juta? Kok bisa warung saya yang terpilih, Mas?"},
+						{"siapa": "fariz", "teks": "Datanya dari pendataan UMKM bulan lalu, Pak. Ini kartu petugas saya, ini surat tugasnya, ada cap kecamatan."},
+						{"siapa": "", "teks": "Mas Fariz memperlihatkan kartu identitas berfoto dan surat berkop lengkap dengan stempel biru. Di ponselnya ada foto-foto pemilik warung lain tersenyum memegang uang dan spanduk."},
+						{"siapa": "fariz", "teks": "Warung di kampung sebelah sudah cair kemarin, Pak. Pak RT di sini juga sudah saya kabari kok."},
+						{"siapa": "fariz", "teks": "Syaratnya cuma satu: ambil paket produk mitra dulu Rp150.000. Isinya minuman yang nanti bisa Bapak jual lagi, jadi uangnya nggak hilang, malah balik jadi dagangan."},
+						{"siapa": "fariz", "teks": "Begitu paketnya dibayar, dana Rp1.000.000 langsung saya ajukan. Sore ini sudah masuk. Tapi kuotanya tinggal dua warung, hari ini terakhir, Pak."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bayar paket Rp150.000 ke Mas Fariz supaya dapat bantuan Rp1.000.000?)"},
+						"opsi": [
+							{"teks": "Ikut program (bayar Rp150.000)", "biaya": 150000, "jika_uang_cukup": 150000, "aksi": "lanjut", "pergi_ke": [[380, 545], [150, 455], [-40, 390]], "dialog": [
+								{"siapa": "bapak", "teks": "Ya sudah, Mas. Ini Rp150.000. Rezeki jangan ditolak."},
+								{"siapa": "fariz", "teks": "Siap, Pak! Paketnya diantar kurir besok pagi, dananya cair sore ini. Selamat ya, Pak Misran!"},
+								{"siapa": "", "teks": "Mas Fariz mencatat sesuatu di ponselnya, berpamitan, lalu bergegas berjalan ke arah rumah warga."}
+							]},
+							{"teks": "Uang saya kurang, Mas (bayar Rp100.000)", "biaya": 100000, "jika_uang_kurang": 150000, "aksi": "lanjut", "pergi_ke": [[380, 545], [150, 455], [-40, 390]], "dialog": [
+								{"siapa": "bapak", "teks": "Mas, uang di laci saya nggak sampai Rp150.000. Gimana, ya?"},
+								{"siapa": "fariz", "teks": "Waduh, Pak... Ya sudah, khusus Bapak Rp100.000 saja. Sisanya nanti dipotong dari dana bantuannya."},
+								{"siapa": "fariz", "teks": "Yang penting Bapak terdaftar hari ini. Sayang sekali kalau kuotanya lewat, Pak. Rp1.000.000 lho."},
+								{"siapa": "bapak", "teks": "Ya sudah, Mas. Ini Rp100.000."},
+								{"siapa": "", "teks": "Mas Fariz cepat-cepat memasukkan uangnya ke saku, berpamitan, lalu bergegas berjalan ke arah rumah warga."}
+							]},
+							{"teks": "Tanya Pak RT dulu", "aksi": "tolong", "pergi_ke": [[380, 545], [150, 455], [-40, 390]], "dialog": [
+								{"siapa": "bapak", "teks": "Sebentar ya, Mas. Saya telepon Pak RT dulu."},
+								{"siapa": "fariz", "teks": "Eh... nggak usah repot, Pak. Nanti kuotanya keburu habis, lho."},
+								{"siapa": "", "teks": "Mas Fariz mendadak gelisah. Sebelum telepon tersambung, ia pamit buru-buru, katanya ada janji di kampung lain."}
+							],
+							"perjalanan": {"teks": "Pak Misran menelepon Pak RT...", "menit": 10, "langkah": false, "detik": 2.2},
+							"dialog_sesudah": [
+								{"siapa": "pak_rt", "teks": "Program Warung Mitra? Saya nggak pernah dikabari apa-apa, Pak. Kecamatan juga nggak pernah minta warga bayar duluan."},
+								{"siapa": "pak_rt", "teks": "Itu modus penipuan, Pak! Minggu lalu warung di kampung sebelah ada yang kena. Untung Bapak tanya dulu."},
+								{"siapa": "bapak", "teks": "Astagfirullah... Hampir saja, Pak RT. Hatur nuhun."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Saya pikir-pikir dulu ya, Mas."},
+								{"siapa": "fariz", "teks": "Jangan kelamaan, Pak. Kuotanya hari ini saja. Saya masih di sekitar sini sampai sore."}
+							]}
+						]
+					}
+				},
+				{"misi": "Temui Pak RT soal Mas Fariz", "area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [16, 22], "jam_ketat": true,
+					"dialog": [
+						{"siapa": "", "teks": "Uang yang dijanjikan tidak pernah masuk. Nomor Mas Fariz juga sudah tidak aktif."},
+						{"siapa": "pak_rt", "teks": "Pak Misran! Ada pemuda dari kota ngaku petugas program bantuan warung, ya?"},
+						{"siapa": "bapak", "teks": "Iya, Pak RT. Saya sudah bayar paketnya. Katanya dananya langsung cair..."},
+						{"siapa": "pak_rt", "teks": "Astagfirullah... Itu penipu, Pak. Nggak ada program begitu. Suratnya palsu, stempelnya palsu. Warung di kampung sebelah juga kena."},
+						{"siapa": "bapak", "teks": "Ya Allah... Kok saya bisa percaya, ya."},
+						{"siapa": "pak_rt", "teks": "Orangnya pintar ngomong, Pak. Ingat: bantuan resmi nggak pernah minta kita bayar duluan. Saya kabari grup biar warga lain hati-hati."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Uang yang sudah dibayar tidak bisa kembali.)"},
+						"opsi": [
+							{"teks": "Ikhlaskan, jadikan pelajaran", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Jadi pelajaran buat saya, Pak RT. Tolong dikabari ke warga, ya."},
+								{"siapa": "pak_rt", "teks": "Pasti, Pak. Yang sabar, ya."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 2,
+					"chat": [["Pak RT", "Warga, hati-hati! Ada pemuda ngaku petugas \"Program Warung Mitra Sejahtera\", minta bayar Rp150.000 dulu supaya dapat bantuan Rp1.000.000. Itu PENIPUAN. Alhamdulillah Pak Misran nggak ketipu. Bantuan resmi nggak pernah minta bayar duluan.", "rt"]],
+					"popup": {"judul": "Lolos dari Penipuan", "isi": "Untung Pak Misran bertanya ke Pak RT dulu. Mas Fariz ternyata penipu yang mengaku petugas program bantuan.",
+						"daftar": ["Uang Rp150.000 selamat", "Pak RT mengingatkan warga di grup", "+2 ulasan baik dari warga"]}},
+				"tolak": {
+					"chat": [["Pak RT", "Warga, hati-hati! Ada pemuda ngaku petugas \"Program Warung Mitra Sejahtera\", minta bayar Rp150.000 dulu supaya dapat bantuan Rp1.000.000. Itu PENIPUAN, sudah ada korban di kampung kita. Bantuan resmi nggak pernah minta bayar duluan.", "rt"]],
+					"popup": {"judul": "Kena Tipu!", "isi": "Mas Fariz ternyata penipu. Paket tidak pernah datang dan dana Rp1.000.000 tidak pernah ada.",
+						"daftar": ["Uang yang dibayar ke Mas Fariz hilang", "Bantuan resmi tidak pernah minta bayar duluan", "Kalau ragu, tanya Pak RT dulu"]}}
+			}
+		},
+		"snack_rapat_rudi": {
+			"level_min": 5,
+			"judul": "Snack Rapat Pak Rudi",
+			"hari_min": 4,
+			"bukan_ramadan": true,
+			"tahap": [
+				{"area": "warung", "npc": "kantoran", "posisi": [430, 600], "hadap": [1, -0.2], "jam": [7, 10],
+					"dialog": [
+						{"siapa": "kantoran", "teks": "Pak Misran! Untung ketemu. Saya lagi pusing, Pak."},
+						{"siapa": "bapak", "teks": "Kenapa, Pak Rudi? Pagi-pagi sudah kusut begitu mukanya."},
+						{"siapa": "kantoran", "teks": "Kantor saya ada rapat besar sama orang dinas. Katering langganan mendadak batal. Butuh 30 kotak snack."},
+						{"siapa": "kantoran", "teks": "Bapak bisa siapkan dari warung? Isinya kue kering dan air mineral. Nanti saya bayar Rp250.000 waktu diantar."},
+						{"siapa": "", "teks": "Untuk belanja bahan dan kotaknya, Pak Misran harus keluar modal dulu sekitar Rp150.000."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Keluar modal Rp150.000 dulu, nanti dibayar Rp250.000. Terima pesanan Pak Rudi?)"},
+						"opsi": [
+							{"teks": "Sanggup, saya siapkan (modal Rp150.000)", "biaya": 150000, "aksi": "lanjut", "maju_menit": 60, "dialog": [
+								{"siapa": "bapak", "teks": "Insyaallah sanggup, Pak Rudi. Saya siapkan sekarang."},
+								{"siapa": "kantoran", "teks": "Alhamdulillah! Antar ke depan masjid, ya, Pak. Saya tunggu di sana."},
+								{"siapa": "", "teks": "Pak Misran berbelanja dan mengemas 30 kotak snack. Antar ke Pak Rudi di depan masjid."}
+							]},
+							{"teks": "Maaf, modalnya belum ada", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Pak Rudi. Uang warung lagi pas-pasan, nggak berani keluar modal segitu."},
+								{"siapa": "kantoran", "teks": "Oh, iya, nggak apa-apa, Pak. Saya cari ke toko kue di kota saja."}
+							]},
+							{"teks": "Nanti saya kabari", "aksi": "tunda", "dialog": [
+								{"siapa": "kantoran", "teks": "Jangan lama-lama, Pak. Saya di sini sampai jam sepuluh."}
+							]}
+						]
+					}
+				},
+				{"misi": "Antar 30 kotak snack ke Pak Rudi di depan masjid", "area": "masjid", "npc": "kantoran", "posisi": [360, 722], "hadap": [1, 0.3], "jam": [7, 21], "bawa": "res://assets/upgrade/kardus_bawa.glb",
+					"dialog": [
+						{"siapa": "bapak", "teks": "Pak Rudi, ini 30 kotak snack-nya."},
+						{"siapa": "kantoran", "teks": "Masyaallah, rapi sekali, Pak! Orang dinas pasti senang. Ini Rp250.000, sesuai janji."},
+						{"siapa": "kantoran", "teks": "Nanti kalau kantor ada acara lagi, saya pesan ke Bapak saja. Teman-teman kantor juga saya suruh mampir ke warung."}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"uang": 250000, "buka": ["soda"], "reputasi": 2, "ramai": 0.03, "pelanggan": {"kantoran": 1.4},
+					"popup": {"judul": "Pesanan Lunas!", "gambar": "res://assets/barang/soda.png", "isi": "Pak Rudi membayar pesanan snack rapat. Teman-teman kantornya ketagihan soda dingin dari warung, jadi sales minuman mulai menitipkan soda.",
+						"daftar": ["Soda kaleng sekarang bisa dijual", "Dibayar Rp250.000 (untung Rp100.000)", "Warung 3% lebih ramai", "Pak Rudi lebih sering belanja", "+2 ulasan bintang 5"]}},
+				"tolak": {"pelanggan": {"kantoran": 0.7},
+					"popup": {"judul": "Cerita Selesai", "isi": "Pak Rudi membeli snack di toko kue kota.",
+						"daftar": ["Pak Rudi agak jarang mampir"]}}
+			},
+			"obrolan": {
+				"tolong": {"kantoran": [
+					[{"siapa": "warga", "teks": "Pak Misran, orang dinas kemarin nanya snack-nya beli di mana. Saya bilang warung Bapak!"}, {"siapa": "bapak", "teks": "Alhamdulillah, makasih promosinya, Pak Rudi."}]
+				]},
+				"tolak": {"kantoran": [
+					[{"siapa": "warga", "teks": "Rapat kemarin lancar, Pak. Snack-nya beli di kota, mahal juga ternyata."}, {"siapa": "bapak", "teks": "Syukurlah lancar, Pak Rudi."}]
+				]}
+			}
+		},
+		"motor_kang_asep": {
+			"level_min": 3,
+			"judul": "Motor Kang Asep Mogok",
+			"hari_min": 5,
+			"tahap": [
+				{"area": "sd", "npc": "ojek", "posisi": [640, 620], "hadap": [1, 0.3], "jam": [15, 20],
+					"dialog": [
+						{"siapa": "ojek", "teks": "Aduh, aduh... Motor saya mogok lagi, sekarang saya tinggal di bengkel. Rantainya putus, kampas remnya juga habis."},
+						{"siapa": "bapak", "teks": "Kenapa, Kang Asep? Motornya rewel?"},
+						{"siapa": "ojek", "teks": "Iya, Pak Misran. Bengkel minta Rp120.000. Saya belum dapat orderan dari pagi."},
+						{"siapa": "ojek", "teks": "Kalau motor nggak jalan, saya nggak bisa narik. Anak istri makan apa nanti..."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Pinjami Kang Asep Rp120.000? Ia berjanji mengembalikan dalam beberapa hari.)"},
+						"opsi": [
+							{"teks": "Pinjami Rp120.000", "biaya": 120000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Pakai ini dulu, Kang. Benerin motornya, biar bisa narik lagi."},
+								{"siapa": "ojek", "teks": "Ya Allah, Pak Misran... Hatur nuhun pisan! Tiga hari lagi saya kembalikan, saya antar ke warung."},
+								{"siapa": "ojek", "teks": "Penumpang saya nanti saya ajak mampir ke warung Bapak. Janji!"},
+								{"siapa": "", "teks": "Pinjaman Kang Asep dicatat di Buku Hutang."}
+							]},
+							{"teks": "Maaf, belum bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Kang. Uang saya juga lagi dipakai buat stok warung."},
+								{"siapa": "ojek", "teks": "Iya, Pak, nggak apa-apa... Nanti saya cari pinjaman lain."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "ojek", "teks": "Iya, Pak. Saya masih di sini nunggu anak-anak pulang les."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"hutang": {"tipe": "ojek", "jumlah": 120000, "tempo": 3}, "ramai": 0.02, "pelanggan": {"ojek": 1.5},
+					"popup": {"judul": "Kang Asep Narik Lagi", "isi": "Motor Kang Asep sudah jalan lagi. Ia sering mengajak penumpangnya mampir ke warung.",
+						"daftar": ["Pinjaman Rp120.000 dicatat di Buku Hutang (dikembalikan 3 hari lagi)", "Warung 2% lebih ramai", "Kang Asep lebih sering belanja"]}},
+				"tolak": {"pelanggan": {"ojek": 0.7},
+					"popup": {"judul": "Cerita Selesai", "isi": "Kang Asep meminjam uang ke rentenir untuk memperbaiki motornya.",
+						"daftar": ["Kang Asep agak jarang mampir"]}}
+			},
+			"obrolan": {
+				"tolong": {"ojek": [
+					[{"siapa": "warga", "teks": "Pak Misran, motor saya sekarang ngebut! Penumpang saya ajak mampir terus ke warung, hehe."}, {"siapa": "bapak", "teks": "Alhamdulillah, Kang. Hati-hati bawa motornya."}]
+				]},
+				"tolak": {"ojek": [
+					[{"siapa": "warga", "teks": "Bunga pinjaman rentenir itu mencekik, Pak... Ya sudah, dijalani saja."}, {"siapa": "bapak", "teks": "Yang sabar, Kang. Semoga cepat lunas."}]
+				]}
+			}
+		},
+		"istri_kang_dadan": {
+			"level_min": 4,
+			"judul": "Istri Kang Dadan Melahirkan",
+			"hari_min": 7,
+			"tahap": [
+				{"area": "warung", "npc": "kurir", "posisi": [560, 605], "hadap": [1, -0.3], "jam": [17, 21],
+					"dialog": [
+						{"siapa": "kurir", "teks": "Pak Misran... maaf ganggu. Boleh bicara sebentar?"},
+						{"siapa": "bapak", "teks": "Boleh, Kang Dadan. Kok kelihatan gelisah?"},
+						{"siapa": "kurir", "teks": "Istri saya sudah waktunya melahirkan, Pak. Bu bidan minta Rp150.000 dulu, tapi gaji kurir baru cair minggu depan."},
+						{"siapa": "kurir", "teks": "Saya sudah tanya ke mana-mana, belum ada yang bisa bantu..."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Pinjami Kang Dadan Rp150.000? Ia akan mengembalikannya setelah gajian.)"},
+						"opsi": [
+							{"teks": "Pinjami Rp150.000", "biaya": 150000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ini, Kang. Cepat ke bidan, jangan sampai istrimu menunggu."},
+								{"siapa": "kurir", "teks": "Ya Allah, Pak... Hatur nuhun! Lima hari lagi saya kembalikan."},
+								{"siapa": "kurir", "teks": "Mulai sekarang belanjaan warung Bapak selalu saya antar paling dulu!"},
+								{"siapa": "", "teks": "Pinjaman Kang Dadan dicatat di Buku Hutang."}
+							]},
+							{"teks": "Maaf, tidak bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Kang Dadan. Uang saya lagi habis buat sewa kios."},
+								{"siapa": "kurir", "teks": "Iya, Pak... Saya coba pinjam ke bos saja."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"hutang": {"tipe": "kurir", "jumlah": 150000, "tempo": 5}, "kurir": 0.8, "reputasi": 1,
+					"chat": [["Kang Dadan", "(pesan suara) Pak Misran, anak saya sudah lahir, laki-laki, sehat. Alhamdulillah. Hatur nuhun pisan bantuannya, Pak.", "rt"]],
+					"popup": {"judul": "Bayi Kang Dadan Lahir!", "isi": "Anak Kang Dadan lahir dengan selamat. Kini belanjaan warung Pak Misran selalu diantar paling dulu.",
+						"daftar": ["Pinjaman Rp150.000 dicatat di Buku Hutang (dikembalikan 5 hari lagi)", "Kurir belanja 20% lebih cepat datang", "+1 ulasan bintang 5"]}},
+				"tolak": {"kurir": 1.15,
+					"popup": {"judul": "Cerita Selesai", "isi": "Kang Dadan meminjam uang ke bosnya. Ia jadi sungkan mampir ke warung.",
+						"daftar": ["Kurir belanja 15% lebih lama datang"]}}
+			},
+			"obrolan": {
+				"tolong": {"kurir": [
+					[{"siapa": "warga", "teks": "Pak Misran! Anak saya sudah bisa senyum. Namanya saya kasih Misbah, mirip nama Bapak, hehe."}, {"siapa": "bapak", "teks": "Masyaallah, semoga jadi anak saleh, Kang."}]
+				]},
+				"tolak": {"kurir": [
+					[{"siapa": "warga", "teks": "Anak saya sudah lahir, Pak. Utang ke bos dipotong dari gaji tiap minggu."}, {"siapa": "bapak", "teks": "Selamat, Kang Dadan. Semoga sehat semua."}]
+				]}
+			}
+		},
+		"alat_mang_ujang": {
+			"level_min": 4,
+			"judul": "Perkakas Mang Ujang",
+			"hari_min": 8,
+			"tahap": [
+				{"area": "masjid", "npc": "tukang", "posisi": [360, 722], "hadap": [1, 0.3], "jam": [7, 12],
+					"dialog": [
+						{"siapa": "tukang", "teks": "Astagfirullah... Semua perkakas saya hilang, Pak Misran. Gergaji, bor, palu, semua diambil maling semalam."},
+						{"siapa": "bapak", "teks": "Ya Allah, Mang Ujang! Terus kerjaannya bagaimana?"},
+						{"siapa": "tukang", "teks": "Besok saya dapat borongan renovasi rumah Pak Kades. Kalau nggak ada alat, borongannya dikasih orang lain."},
+						{"siapa": "tukang", "teks": "Perkakas bekas di pasar Rp200.000, Pak. Saya nggak pegang uang sama sekali."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu Mang Ujang Rp200.000? Ia hanya sanggup mengembalikan separuhnya.)"},
+						"opsi": [
+							{"teks": "Bantu Rp200.000", "biaya": 200000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ini, Mang. Beli perkakasnya, jangan sampai borongannya lepas."},
+								{"siapa": "tukang", "teks": "Pak Misran... saya cuma bisa ganti Rp100.000 minggu ini. Sisanya saya bayar pakai tenaga, ya?"},
+								{"siapa": "bapak", "teks": "Sudah, nggak usah dipikirkan. Yang penting kerjaannya jalan."},
+								{"siapa": "", "teks": "Rp100.000 dicatat di Buku Hutang."}
+							]},
+							{"teks": "Maaf, tidak bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Mang. Saya juga lagi nabung buat Agus."},
+								{"siapa": "tukang", "teks": "Iya, Pak. Saya pinjam alat ke saudara saja, semoga dikasih."}
+							]},
+							{"teks": "Nanti saya pikirkan", "aksi": "tunda", "dialog": [
+								{"siapa": "tukang", "teks": "Saya di masjid sampai Zuhur, Pak. Bantu bersih-bersih, daripada nganggur."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"hutang": {"tipe": "tukang", "jumlah": 100000, "tempo": 4}, "reputasi": 3, "ramai": 0.02, "pelanggan": {"tukang": 1.5},
+					"popup": {"judul": "Borongan Selamat", "isi": "Mang Ujang dapat borongan renovasi. Para kuli bangunannya tiap hari beli kopi dan gorengan di warung.",
+						"daftar": ["Rp100.000 dikembalikan 4 hari lagi (Buku Hutang)", "Warung 2% lebih ramai", "Mang Ujang lebih sering belanja", "+3 ulasan bintang 5"]}},
+				"tolak": {"pelanggan": {"tukang": 0.7},
+					"popup": {"judul": "Cerita Selesai", "isi": "Mang Ujang kehilangan borongannya.",
+						"daftar": ["Mang Ujang agak jarang mampir"]}}
+			},
+			"obrolan": {
+				"tolong": {"tukang": [
+					[{"siapa": "warga", "teks": "Rumah Pak Kades hampir beres, Pak. Kuli-kuli saya betah ngopi di warung Bapak."}, {"siapa": "bapak", "teks": "Alhamdulillah, Mang. Semoga borongannya nambah terus."}]
+				]},
+				"tolak": {"tukang": [
+					[{"siapa": "warga", "teks": "Sekarang saya jadi kuli harian dulu, Pak. Pelan-pelan nabung beli alat."}, {"siapa": "bapak", "teks": "Semangat, Mang Ujang."}]
+				]}
+			}
+		},
+		"kitab_kang_fadil": {
+			"level_min": 2,
+			"judul": "Kitab Kang Fadil",
+			"hari_min": 6,
+			"tahap": [
+				{"area": "pesantren", "npc": "santri_putih", "posisi": [640, 600], "hadap": [-0.6, 1], "jam": [7, 12],
+					"dialog": [
+						{"siapa": "santri_putih", "teks": "Assalamualaikum, Pak Misran..."},
+						{"siapa": "bapak", "teks": "Waalaikumsalam, Kang Fadil. Kok kelihatan bingung?"},
+						{"siapa": "santri_putih", "teks": "Kitab saya ketumpahan air, Pak. Halamannya sobek dan luntur. Padahal sebentar lagi ujian hafalan, saya harus pakai kitab itu."},
+						{"siapa": "santri_putih", "teks": "Kitab baru di toko kitab kota Rp80.000. Kiriman Emak bulan ini sudah habis buat bayar asrama..."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Belikan Kang Fadil kitab baru, Rp80.000?)"},
+						"opsi": [
+							{"teks": "Belikan kitab (Rp80.000)", "biaya": 80000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ini, Kang. Beli kitab yang baru. Belajar yang sungguh-sungguh, ya."},
+								{"siapa": "santri_putih", "teks": "Jazakallah khair, Pak Misran! Insyaallah saya doakan warung Bapak berkah."},
+								{"siapa": "santri_putih", "teks": "Nanti teman-teman asrama saya ajak jajan di warung Bapak."}
+							]},
+							{"teks": "Pakai kitab teman dulu, ya", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Coba pinjam kitab teman dulu, Kang. Bapak lagi belum ada."},
+								{"siapa": "santri_putih", "teks": "Iya, Pak. Nanti saya salin dari kitab Kang Hasan."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "santri_putih", "teks": "Iya, Pak. Saya di sini sampai Zuhur, murojaah hafalan."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3, "ramai": 0.02, "pelanggan": {"santri_putih": 1.4, "santri_hitam": 1.2},
+					"popup": {"judul": "Lulus Ujian Hafalan", "isi": "Kang Fadil lulus ujian dengan nilai terbaik. Santri-santri asrama jadi sering jajan di warung.",
+						"daftar": ["Warung 2% lebih ramai", "Para santri lebih sering belanja", "+3 ulasan bintang 5"]}},
+				"tolak": {"pelanggan": {"santri_putih": 0.75},
+					"popup": {"judul": "Cerita Selesai", "isi": "Kang Fadil menyalin kitab dari temannya semalaman.",
+						"daftar": ["Kang Fadil agak jarang mampir"]}}
+			},
+			"obrolan": {
+				"tolong": {"santri_putih": [
+					[{"siapa": "warga", "teks": "Pak Misran, alhamdulillah hafalan saya lulus! Kitabnya saya jaga baik-baik."}, {"siapa": "bapak", "teks": "Masyaallah, selamat, Kang Fadil!"}]
+				]},
+				"tolak": {"santri_putih": [
+					[{"siapa": "warga", "teks": "Ujian kemarin lumayan, Pak. Salinan kitab saya tulisannya berantakan, hehe."}, {"siapa": "bapak", "teks": "Yang penting hafalannya, Kang."}]
+				]}
+			}
+		},
+		"lampu_zebra_pak_rt": {
+			"level_min": 6,
+			"judul": "Lampu Kedip Zebra Cross",
+			"hari_min": 9,
+			"tahap": [
+				{"area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [16, 21],
+					"dialog": [
+						{"siapa": "pak_rt", "teks": "Pak Misran, pas sekali. Saya lagi keliling minta sumbangan warga."},
+						{"siapa": "pak_rt", "teks": "Motor sering ngebut di zebra cross depan warung. Sudah beberapa kali warga hampir keserempet."},
+						{"siapa": "pak_rt", "teks": "Kami mau pasang lampu kedip dan rambu di kedua ujung jalan kampung, supaya kendaraan melambat. Kurangnya Rp150.000 lagi."},
+						{"siapa": "bapak", "teks": "Wah, itu penting sekali, Pak RT. Warung saya juga pas di situ."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Sumbang kekurangan biaya lampu & rambu Rp150.000?)"},
+						"opsi": [
+							{"teks": "Sumbang Rp150.000", "biaya": 150000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Biar saya tutup kekurangannya, Pak RT. Supaya cepat dipasang."},
+								{"siapa": "pak_rt", "teks": "Masyaallah! Hatur nuhun, Pak Misran. Minggu ini langsung kami pasang."}
+							]},
+							{"teks": "Maaf, belum bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Pak RT. Bulan ini saya lagi berat, sewa kios naik."},
+								{"siapa": "pak_rt", "teks": "Iya, nggak apa-apa, Pak. Kami tunggu sumbangan warga lain dulu."}
+							]},
+							{"teks": "Nanti saya pikirkan", "aksi": "tunda", "dialog": [
+								{"siapa": "pak_rt", "teks": "Boleh, Pak. Saya di pos ronda sampai malam."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3, "ramai": 0.03, "zebra_aman": 0.5,
+					"chat": [["Pak RT", "Alhamdulillah, lampu kedip dan rambu di kedua ujung jalan kampung sudah terpasang. Terima kasih Pak Misran yang menutup kekurangan biayanya.", "rt"]],
+					"popup": {"judul": "Zebra Cross Terang", "isi": "Lampu kedip dan rambu terpasang di kedua ujung jalan kampung. Kendaraan lebih pelan, warga lebih aman, dan warung lebih ramai.",
+						"daftar": ["Menyeberang jauh lebih aman (kendaraan melambat)", "Warung 3% lebih ramai", "+3 ulasan bintang 5"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Lampu kedip belum terpasang. Hati-hati menyeberang.",
+						"daftar": ["Kendaraan tetap ngebut di zebra cross"]}}
+			},
+			"obrolan": {
+				"tolong": {"pak_rt": [
+					[{"siapa": "warga", "teks": "Sejak ada lampu kedip dan rambu, motor jadi pelan-pelan lewat depan warung, Pak. Alhamdulillah."}, {"siapa": "bapak", "teks": "Alhamdulillah, Pak RT. Anak-anak juga aman nyeberang."}]
+				]},
+				"tolak": {"pak_rt": [
+					[{"siapa": "warga", "teks": "Sumbangan lampu kedip masih kurang, Pak. Sabar dulu, ya."}, {"siapa": "bapak", "teks": "Semoga cepat terkumpul, Pak RT."}]
+				]}
+			}
+		},
+		"izin_depot_galon": {
+			"level_min": 3,
+			"judul": "Izin Agen Air Galon",
+			"hari_min": 1,
+			"akrab": false,
+			"tahap": [
+				{"area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [8, 21],
+					"dialog": [
+						{"siapa": "pak_rt", "teks": "Pak Misran! Kebetulan. Tadi orang depot air isi ulang mampir ke pos ronda, nanyain warung Bapak."},
+						{"siapa": "bapak", "teks": "Oh, soal galon titipan itu, Pak RT? Sudah lama nangkring di rak, tapi belum boleh saya jual."},
+						{"siapa": "pak_rt", "teks": "Nah, itu dia. Depotnya mau jadikan warung Bapak agen resmi. Syaratnya surat keterangan usaha dari RT dan RW."},
+						{"siapa": "pak_rt", "teks": "Biaya administrasi sama materai Rp75.000, Pak. Suratnya bisa saya urus hari ini juga."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Urus surat keterangan usaha agen galon, Rp75.000?)"},
+						"opsi": [
+							{"teks": "Urus suratnya (Rp75.000)", "biaya": 75000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Bismillah, tolong diurus, Pak RT. Ini uangnya."},
+								{"siapa": "pak_rt", "teks": "Siap! Sore ini saya antar suratnya ke depot. Mulai besok galon di warung Bapak sudah resmi boleh dijual."}
+							]},
+							{"teks": "Nanti dulu, uangnya belum cukup", "aksi": "tunda", "dialog": [
+								{"siapa": "pak_rt", "teks": "Iya, Pak. Kapan saja Bapak siap, saya di pos ronda."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["galon"], "reputasi": 1,
+					"popup": {"judul": "Resmi Jadi Agen Galon!", "gambar": "res://assets/barang/galon.png", "isi": "Surat keterangan usaha sudah keluar. Galon titipan depot sekarang boleh dijual.",
+						"daftar": ["Air galon isi ulang sekarang bisa dijual (untung Rp2.000 per galon)", "Galon titipan di rak langsung bisa dijual"]}}
+			}
+		},
+		"pangkalan_gas": {
+			"level_min": 4,
+			"judul": "Pangkalan Gas Resmi",
+			"hari_min": 1,
+			"akrab": false,
+			"tahap": [
+				{"area": "sd", "npc": "ojek", "posisi": [640, 620], "hadap": [1, 0.3], "jam": [15, 20],
+					"dialog": [
+						{"siapa": "ojek", "teks": "Pak Misran! Saya baru dari agen LPG di kecamatan, saudara saya kerja di sana."},
+						{"siapa": "ojek", "teks": "Katanya mereka cari pangkalan baru di kampung ini. Warung Bapak kan sudah ada tabung titipan, tinggal izinnya."},
+						{"siapa": "bapak", "teks": "Wah, betul, Kang. Tabungnya sudah lama di rak, tapi belum berani saya jual tanpa izin."},
+						{"siapa": "ojek", "teks": "Syaratnya uang jaminan tabung Rp200.000, Pak. Nanti saya yang antar berkasnya ke agen."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bayar jaminan tabung Rp200.000 supaya warung jadi pangkalan LPG resmi?)"},
+						"opsi": [
+							{"teks": "Bayar jaminan (Rp200.000)", "biaya": 200000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ini, Kang. Tolong sampaikan ke agennya, ya."},
+								{"siapa": "ojek", "teks": "Siap, Pak! Besok tanda pangkalannya sudah bisa dipasang. Ibu-ibu nggak perlu jauh-jauh lagi beli gas."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "ojek", "teks": "Iya, Pak. Saya mangkal di sini tiap sore, nunggu anak-anak pulang les."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["lpg"], "reputasi": 2, "ramai": 0.02,
+					"popup": {"judul": "Pangkalan LPG Resmi!", "gambar": "res://assets/barang/lpg.png", "isi": "Warung Pak Misran jadi pangkalan LPG 3 kg resmi. Ibu-ibu sekampung beli gas di sini.",
+						"daftar": ["LPG 3 kg sekarang bisa dijual (untung Rp4.000 per tabung)", "Warung 2% lebih ramai", "+2 ulasan bintang 5"]}}
+			}
+		},
+		"arisan_bu_ida": {"janji": true, 
+			"level_min": 5,
+			"hari_pasar": true, "judul": "Pesanan Arisan Ibu-Ibu",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "pasar", "npc": "ibu_rumah_tangga", "posisi": [640, 508], "hadap": [0.35, 1], "jam": [8, 20.5], "_jam": "12 Nov (user): dipindah ke Pasar, di lapak Bu Ida, selama pasar buka.",
+					"dialog": [
+						{"siapa": "ibu_rumah_tangga", "teks": "Eh, Pak Misran, mampir ke pasar juga? Ibu-ibu arisan mau masak besar buat syukuran kampung sebentar lagi."},
+						{"siapa": "ibu_rumah_tangga", "teks": "Kami perlu gula pasir sama teh celup yang banyak. Di lapak saya cuma ada buah. Kalau beli di grosir Haji Maman, ibu-ibu repot bolak-balik naik angkot."},
+						{"siapa": "ibu_rumah_tangga", "teks": "Kalau Bapak mau sediakan, kami langsung borong. Nanti seterusnya juga belanja di warung Bapak."},
+						{"siapa": "", "teks": "Untuk stok pertama gula dan teh celup, Pak Misran harus keluar modal Rp150.000."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Sediakan gula & teh celup dengan modal Rp150.000? Ibu-ibu langsung memborong Rp220.000.)"},
+						"opsi": [
+							{"teks": "Sediakan (modal Rp150.000)", "biaya": 150000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Siap, Bu Ida. Besok pagi gula dan teh celupnya sudah ada di warung."},
+								{"siapa": "ibu_rumah_tangga", "teks": "Alhamdulillah! Ini uang borongannya Rp220.000, Pak. Sisanya nanti ibu-ibu belanja sendiri-sendiri."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "ibu_rumah_tangga", "teks": "Iya, Pak. Tapi jangan lama-lama, syukurannya sebentar lagi."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["gula", "kopi_bubuk"], "uang": 220000, "ramai": 0.02, "pelanggan": {"ibu_rumah_tangga": 1.3},
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/gula.png", "isi": "Ibu-ibu arisan memborong gula dan teh celup. Kini keduanya jadi barang tetap di warung.",
+						"daftar": ["Gula pasir & teh celup sekarang bisa dijual", "Borongan Rp220.000 (untung Rp70.000)", "Warung 2% lebih ramai"]}}
+			},
+			"obrolan": {
+				"tolong": {"ibu_rumah_tangga": [
+					[{"siapa": "warga", "teks": "Syukurannya rame, Pak. Teh manisnya enak, pada nanya beli tehnya di mana."}, {"siapa": "bapak", "teks": "Alhamdulillah, Bu Ida. Makasih sudah promosi."}]
+				]}
+			}
+		},
+		"ucup_juara": {"janji": true, 
+			"level_min": 5,
+			"judul": "Ucup Juara Kelas",
+			"hari_min": 1,
+			"setelah": "ucup_sekolah",
+			"setelah_hasil": "tolong",
+			"hari_sekolah": true,
+			"bukan_ramadan": true,
+			"tahap": [
+				{"area": "sd", "npc": "anak", "posisi": [760, 560], "hadap": [-0.4, 1], "jam": [8, 13],
+					"dialog": [
+						{"siapa": "anak", "teks": "Pak Misran! Pak Misran! Ucup ranking satu di kelas!"},
+						{"siapa": "bapak", "teks": "Masyaallah, Cup! Hebat sekali kamu!"},
+						{"siapa": "anak", "teks": "Bu Guru bilang yang juara boleh traktir teman sekelas. Tapi Ucup nggak punya uang, Pak... Nenek juga."},
+						{"siapa": "anak", "teks": "Ucup pengin traktir susu kotak buat teman-teman. Mereka yang dulu minjemin Ucup buku."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu Ucup mentraktir teman sekelasnya?)"},
+						"opsi": [
+							{"teks": "Traktir susu kotak satu kelas (Rp90.000)", "biaya": 90000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Nanti Bapak antar susu kotak buat satu kelas. Anggap hadiah juara dari Bapak."},
+								{"siapa": "anak", "teks": "Beneran, Pak?! Ucup mau bilang ke teman-teman, ini dari Pak Misran!"}
+							]},
+							{"teks": "Belikan kue kecil saja (Rp40.000)", "biaya": 40000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Bapak belikan kue kecil buat dibagi, ya. Uang Bapak lagi pas-pasan."},
+								{"siapa": "anak", "teks": "Nggak apa-apa, Pak! Makasih banyak! Nanti Ucup bilang ke Bu Guru."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "anak", "teks": "Iya, Pak. Ucup di sini sampai pulang sekolah."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["susu_kotak"], "reputasi": 3, "pelanggan": {"anak": 1.3, "siswi": 1.2, "pelajar": 1.2},
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/susu_kotak.png", "isi": "Anak-anak SD senang ditraktir. Sejak itu mereka sering mampir membeli susu kotak sebelum sekolah.",
+						"daftar": ["Susu kotak sekarang bisa dijual", "Anak sekolah lebih sering belanja", "+3 ulasan bintang 5"]}}
+			},
+			"obrolan": {
+				"tolong": {"anak": [
+					[{"siapa": "warga", "teks": "Pak Misran, teman-teman masih ngomongin susu kotak kemarin! Ucup mau tetap juara!"}, {"siapa": "bapak", "teks": "Pertahankan, Cup. Nenek pasti bangga."}]
+				]}
+			}
+		},
+		"susu_sd": {"janji": true, 
+			"level_min": 5,
+			"judul": "Susu Sekolah",
+			"hari_min": 1,
+			"setelah": "ucup_sekolah",
+			"setelah_hasil": "tolak",
+			"tunggu": ["lomba_shinta"],
+			"hari_sekolah": true,
+			"bukan_ramadan": true,
+			"tahap": [
+				{"area": "sd", "npc": "siswi", "posisi": [900, 600], "hadap": [-1, 0.3], "jam": [13, 17],
+					"dialog": [
+						{"siapa": "siswi", "teks": "Pak Misran! Bu Guru lagi cari warung yang bisa sediakan susu kotak buat adik-adik SD."},
+						{"siapa": "siswi", "teks": "Stok pertamanya sekitar Rp90.000, Pak. Nanti anak-anak bisa beli sendiri sebelum sekolah."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Sediakan susu kotak untuk anak-anak SD, Rp90.000?)"},
+						"opsi": [
+							{"teks": "Sediakan (Rp90.000)", "biaya": 90000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Boleh, Neng. Bilang ke Bu Guru, susu kotaknya saya sediakan."},
+								{"siapa": "siswi", "teks": "Makasih, Pak! Adik-adik pasti senang."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "siswi", "teks": "Iya, Pak. Saya di sini tiap pulang sekolah."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["susu_kotak"], "reputasi": 3, "pelanggan": {"anak": 1.3, "siswi": 1.2, "pelajar": 1.2},
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/susu_kotak.png", "isi": "Anak-anak SD mulai membeli susu kotak di warung sebelum sekolah.",
+						"daftar": ["Susu kotak sekarang bisa dijual", "Anak sekolah lebih sering belanja", "+3 ulasan bintang 5"]}}
+			}
+		},
+		"panen_abah": {
+			"level_min": 3,
+			"judul": "Hama Wereng di Sawah",
+			"hari_min": 1,
+			"setelah": "beras_abah_karta",
+			"setelah_hasil": "tolong",
+			"tahap": [
+				{"area": "sawah", "npc": "petani", "posisi": [380, 512], "hadap": [1, 0.4], "jam": [7, 17],
+					"dialog": [
+						{"siapa": "petani", "teks": "Aduh, Pak Misran... Lihat ini, padinya kena wereng. Batangnya mulai kuning."},
+						{"siapa": "bapak", "teks": "Astagfirullah, Abah. Masih bisa diselamatkan?"},
+						{"siapa": "petani", "teks": "Masih, kalau cepat disemprot. Obat hamanya Rp150.000, tapi uang Abah habis buat bibit kemarin."},
+						{"siapa": "petani", "teks": "Kalau panen gagal, beras titipan di warung Bapak juga ikut habis..."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu Abah membeli obat hama Rp150.000? Abah berjanji membayar dengan hasil panen.)"},
+						"opsi": [
+							{"teks": "Bantu beli obat hama (Rp150.000)", "biaya": 150000, "aksi": "tolong", "maju_menit": 90, "dialog": [
+								{"siapa": "bapak", "teks": "Ayo, Abah. Kita beli sekarang, sekalian saya bantu semprot."},
+								{"siapa": "", "teks": "Pak Misran membantu Abah Karta menyemprot sawah sampai siang."},
+								{"siapa": "petani", "teks": "Hatur nuhun, Pak. Nanti kalau panen, uangnya Abah ganti, ditambah beras sekarung buat Bapak."}
+							]},
+							{"teks": "Maaf, belum bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Abah. Uang warung lagi dipakai buat Agus."},
+								{"siapa": "petani", "teks": "Iya, Pak... Abah coba pinjam ke kelompok tani saja."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"hutang": {"tipe": "petani", "jumlah": 200000, "tempo": 6}, "reputasi": 3, "pelanggan": {"petani": 1.4},
+					"popup": {"judul": "Sawah Selamat", "isi": "Padi Abah Karta selamat dari wereng. Abah berjanji mengganti uangnya dari hasil panen.",
+						"daftar": ["Abah membayar Rp200.000 dari hasil panen 6 hari lagi (Buku Hutang)", "Abah Karta lebih sering belanja", "+3 ulasan bintang 5"]}},
+				"tolak": {"pelanggan": {"petani": 0.7},
+					"popup": {"judul": "Cerita Selesai", "isi": "Abah Karta meminjam obat hama ke kelompok tani. Sebagian sawahnya tetap gagal panen.",
+						"daftar": ["Abah Karta agak jarang mampir"]}}
+			},
+			"obrolan": {
+				"tolong": {"petani": [
+					[{"siapa": "warga", "teks": "Padinya sudah menguning bagus, Pak. Wereng kapok, hehe."}, {"siapa": "bapak", "teks": "Alhamdulillah, Abah. Semoga panennya melimpah."}]
+				]}
+			}
+		},
+		"laundry_giska": {"janji": true, 
+			"level_min": 6,
+			"judul": "Laundry Mba Giska",
+			"hari_min": 1,
+			"setelah": "kucing_bu_ida",
+			"tahap": [
+				{"area": "rumah", "npc": "giska", "posisi": [480, 434], "hadap": [1, 0.4], "jam": [9, 18],
+					"dialog": [
+						{"siapa": "giska", "teks": "Pak Misran! Saya mau buka usaha laundry kiloan di rumah. Banyak santri sama pekerja yang butuh."},
+						{"siapa": "giska", "teks": "Saya butuh sabun dan deterjen rutin tiap minggu. Bapak mau jadi pemasok saya?"},
+						{"siapa": "bapak", "teks": "Wah, boleh sekali, Mba. Tapi warung saya belum jual sabun dan deterjen."},
+						{"siapa": "giska", "teks": "Stok pertamanya kira-kira Rp120.000, Pak. Nanti pesanan pertama saya bayar Rp170.000 di muka."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Sediakan sabun & deterjen dengan modal Rp120.000? Mba Giska membayar pesanan pertama Rp170.000.)"},
+						"opsi": [
+							{"teks": "Jadi pemasok (modal Rp120.000)", "biaya": 120000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Siap, Mba. Besok sabun dan deterjennya sudah ada."},
+								{"siapa": "giska", "teks": "Deal! Ini Rp170.000 buat pesanan pertama. Nanti pelanggan laundry saya suruh belanja ke warung Bapak juga."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "giska", "teks": "Oke, Pak. Saya masih beres-beres mesin cucinya kok."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["sabun", "deterjen"], "uang": 170000, "ramai": 0.02, "pelanggan": {"giska": 1.3, "santri_putih": 1.1, "santri_hitam": 1.1},
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/deterjen.png", "isi": "Laundry Mba Giska ramai. Warung Pak Misran jadi pemasok sabun dan deterjennya.",
+						"daftar": ["Sabun mandi & deterjen sekarang bisa dijual", "Pesanan pertama Rp170.000 (untung Rp50.000)", "Warung 2% lebih ramai"]}}
+			},
+			"obrolan": {
+				"tolong": {"giska": [
+					[{"siapa": "warga", "teks": "Laundry saya sudah 20 kilo sehari, Pak! Deterjennya cepat habis, hehe."}, {"siapa": "bapak", "teks": "Alhamdulillah, Mba. Stoknya saya siapkan terus."}]
+				]}
+			}
+		},
+		"token_pak_rt": {
+			"level_min": 7,
+			"judul": "Loket Token Listrik",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [16, 21],
+					"dialog": [
+						{"siapa": "pak_rt", "teks": "Pak Misran, semalam rumah Nenek Sumi gelap. Token listriknya habis, konter terdekat sudah tutup."},
+						{"siapa": "pak_rt", "teks": "Warga minta saya cari warung yang bisa jual token listrik. Warung Bapak kan sudah ada konter pulsa."},
+						{"siapa": "bapak", "teks": "Bisa, Pak RT. Tapi harus daftar loket dan isi deposit dulu, ya?"},
+						{"siapa": "pak_rt", "teks": "Iya, pendaftaran loketnya Rp100.000. Biar warga nggak kegelapan lagi malam-malam."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Daftar loket token listrik, Rp100.000?)"},
+						"opsi": [
+							{"teks": "Daftar loket (Rp100.000)", "biaya": 100000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Saya daftar hari ini, Pak RT. Mulai besok warga bisa beli token di warung."},
+								{"siapa": "pak_rt", "teks": "Alhamdulillah. Saya umumkan di grup RT."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "pak_rt", "teks": "Boleh, Pak. Saya di pos ronda tiap sore."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["token_listrik"], "reputasi": 2, "ramai": 0.02,
+					"chat": [["Pak RT", "Bapak-Ibu, sekarang beli token listrik bisa di warung Pak Misran. Nggak usah jauh-jauh ke kecamatan lagi.", "rt"]],
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/token_listrik.png", "isi": "Warung Pak Misran resmi jadi loket token listrik.",
+						"daftar": ["Token listrik sekarang bisa dijual di konter pulsa", "Warung 2% lebih ramai", "+2 ulasan bintang 5"]}}
+			}
+		},
+		"dimas_smk": {"janji": true, 
+			"level_min": 7,
+			"judul": "Dimas Masuk SMK",
+			"hari_min": 1,
+			"setelah": "layangan_dimas",
+			"tahap": [
+				{"area": "sawah", "npc": "pelajar", "posisi": [948, 516], "hadap": [-1, -0.2], "jam": [14, 18],
+					"dialog": [
+						{"siapa": "pelajar", "teks": "Pak Misran... Dimas keterima di SMK jurusan mesin."},
+						{"siapa": "bapak", "teks": "Wah, selamat, Dim! Kok mukanya sedih?"},
+						{"siapa": "pelajar", "teks": "Seragam praktik sama sepatu safety-nya Rp150.000, Pak. Bapak saya lagi nggak ada kerjaan. Takut nggak jadi sekolah."},
+						{"siapa": "pelajar", "teks": "Kalau Bapak bantu dulu, Dimas cicil separuhnya dari uang saku. Boleh, Pak?"}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu biaya seragam Dimas Rp150.000? Ia akan mencicil separuhnya dari uang saku.)"},
+						"opsi": [
+							{"teks": "Bantu (Rp150.000)", "biaya": 150000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ini, Dim. Sekolah yang benar. Soal cicilan, separuh saja cukup."},
+								{"siapa": "pelajar", "teks": "Makasih, Pak! Dimas janji, minggu depan cicilannya Dimas antar ke warung!"}
+							]},
+							{"teks": "Maaf, belum bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf, Dim. Bapak juga lagi butuh buat Agus."},
+								{"siapa": "pelajar", "teks": "Iya, Pak. Dimas coba minta keringanan ke sekolah."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "pelajar", "teks": "Iya, Pak. Dimas di sini sampai sore."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"hutang": {"tipe": "pelajar", "jumlah": 75000, "tempo": 7}, "reputasi": 3, "ramai": 0.01, "pelanggan": {"pelajar": 1.4, "siswi": 1.1},
+					"popup": {"judul": "Dimas Bisa Sekolah", "isi": "Dimas mulai sekolah di SMK. Ia mencicil separuh bantuan Pak Misran dari uang sakunya.",
+						"daftar": ["Dimas mengembalikan Rp75.000 7 hari lagi (Buku Hutang)", "Anak sekolah lebih sering belanja", "+3 ulasan bintang 5"]}},
+				"tolak": {"pelanggan": {"pelajar": 0.75},
+					"popup": {"judul": "Cerita Selesai", "isi": "Dimas mendapat keringanan dari sekolah, tapi harus memakai seragam bekas.",
+						"daftar": ["Dimas agak jarang mampir"]}}
+			},
+			"obrolan": {
+				"tolong": {"pelajar": [
+					[{"siapa": "warga", "teks": "Pak, tadi praktik bongkar mesin motor! Seru banget!"}, {"siapa": "bapak", "teks": "Mantap, Dim. Nanti benerin motor Kang Asep, ya, hehe."}]
+				]}
+			}
+		},
+		"freezer_es_krim": {"janji": true, 
+			"level_min": 7,
+			"judul": "Freezer Es Krim",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "warung", "npc": "kurir", "posisi": [560, 605], "hadap": [1, -0.3], "jam": [10, 17],
+					"dialog": [
+						{"siapa": "kurir", "teks": "Pak Misran, kantor saya sekarang juga distributor es krim. Mereka cari warung buat titip freezer."},
+						{"siapa": "kurir", "teks": "Saya langsung rekomendasikan warung Bapak. Warung paling ramai di kampung ini."},
+						{"siapa": "bapak", "teks": "Wah, freezer? Anak-anak pasti senang. Syaratnya apa, Kang?"},
+						{"siapa": "kurir", "teks": "Uang jaminan freezer Rp250.000, Pak. Freezernya tetap milik distributor, listriknya dari warung."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bayar jaminan freezer es krim Rp250.000?)"},
+						"opsi": [
+							{"teks": "Pasang freezer (Rp250.000)", "biaya": 250000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ayo, Kang. Pasang di samping kulkas saja."},
+								{"siapa": "kurir", "teks": "Siap! Besok freezer sama es krimnya saya antar sekalian."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "kurir", "teks": "Iya, Pak. Tawarannya masih berlaku kok."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"buka": ["es_krim"], "ramai": 0.03, "pelanggan": {"anak": 1.2, "siswi": 1.15, "pelajar": 1.15},
+					"popup": {"judul": "Barang Baru Terbuka!", "gambar": "res://assets/barang/es_krim.png", "isi": "Freezer es krim terpasang. Anak-anak kampung berebut beli es krim sepulang sekolah.",
+						"daftar": ["Es krim sekarang bisa dijual (paling laris siang hari)", "Warung 3% lebih ramai", "Anak-anak lebih sering mampir"]}}
+			}
+		},
+		"umrah_haji_doni": {
+			"level_min": 9,
+			"judul": "Umrah untuk Ibunda",
+			"hari_min": 1,
+			"setelah": "pengajian_haji_doni",
+			"tahap": [
+				{"area": "masjid", "npc": "haji_doni", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [7, 17],
+					"dialog": [
+						{"siapa": "haji_doni", "teks": "Pak Misran, ibu saya sudah sepuh. Dari dulu beliau ingin sekali umrah sebelum ajal."},
+						{"siapa": "haji_doni", "teks": "Tabungan saya hampir cukup, tapi kurang sedikit. Jamaah masjid sepakat patungan."},
+						{"siapa": "haji_doni", "teks": "Saya tidak memaksa, Pak. Seikhlasnya saja. Doa Bapak juga sudah cukup."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Ikut patungan umrah ibunda Haji Doni?)"},
+						"opsi": [
+							{"teks": "Ikut patungan (Rp300.000)", "biaya": 300000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ini dari saya, Haji Doni. Semoga ibunda sehat dan lancar ibadahnya."},
+								{"siapa": "haji_doni", "teks": "Masyaallah... Jazakallah khair, Pak Misran. Nama Bapak saya titipkan dalam doa di Tanah Suci."}
+							]},
+							{"teks": "Ikut patungan (Rp100.000)", "biaya": 100000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Maaf cuma segini, Haji Doni. Semoga berkah."},
+								{"siapa": "haji_doni", "teks": "Berapa pun sangat berarti, Pak Misran. Terima kasih."}
+							]},
+							{"teks": "Doakan saja", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Saya doakan dari sini, Haji Doni. Semoga lancar semuanya."},
+								{"siapa": "haji_doni", "teks": "Aamiin. Terima kasih, Pak."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 4, "ramai": 0.03,
+					"chat": [["Pak RT", "Alhamdulillah, patungan umrah ibunda Pak Haji Doni sudah terkumpul. Terima kasih jamaah, termasuk Pak Misran.", "rt"]],
+					"popup": {"judul": "Berangkat ke Tanah Suci", "isi": "Ibunda Haji Doni berangkat umrah. Jamaah masjid makin sayang pada Pak Misran.",
+						"daftar": ["Warung 3% lebih ramai", "+4 ulasan bintang 5"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Patungan jamaah tetap cukup. Ibunda Haji Doni berangkat umrah.",
+						"daftar": ["Haji Doni berterima kasih atas doanya"]}}
+			}
+		},
+		"agus_mudik": {
+			"judul": "Agus Pulang",
+			"hari_min": 85,
+			"hari_maks": 85, "susulan": {"kabar":["Agus","Pak, Agus lagi di kampung. Nanti Agus tunggu di depan warung, ya.","agus"],"tahap":[{"area":"warung","npc":"agus","posisi":[560,605],"hadap":[1,-0.3],"jam":[7,22],"ransel":true,"datang_dari":[[-20,395],[300,505]],"misi":"Temui Agus di depan warung","dialog":[{"siapa":"","teks":"Seorang pemuda dengan ransel besar berdiri menunggu di depan warung. Pak Misran langsung mengenali senyumnya."},{"siapa":"agus","teks":"Assalamualaikum, Pak. Agus pulang sebentar."},{"siapa":"bapak","teks":"Waalaikumsalam. Ya Allah, Gus! Kok nggak bilang-bilang?"},{"siapa":"agus","teks":"Lebaran kemarin Agus sempat ke sini, tapi nggak ketemu Bapak. Jadi Agus sengaja datang lagi, mau kasih kejutan."},{"siapa":"bapak","teks":"Maafkan Bapak, Gus. Bapak nggak tahu kamu datang."},{"siapa":"agus","teks":"Nggak apa-apa, Pak. Ibu titip salam. Kata Ibu, Bapak harus jaga kesehatan."},{"siapa":"agus","teks":"Haji Doni cerita, Bapak kerja keras sekali tiap hari. Agus bangga sama Bapak."},{"siapa":"","teks":"Pak Misran menepuk bahu anaknya lama sekali. Warung kecil itu kembali terasa seperti rumah."},{"siapa":"agus","teks":"Agus libur beberapa hari, Pak. Agus bantu jaga warung, ya. Biar Bapak nggak capek sendirian."}],"pilihan":{"tanya":{"siapa":"bapak","teks":"(Ajak Agus masuk ke warung)"},"opsi":[{"teks":"Ayo masuk, Gus","aksi":"tolong","dialog":[{"siapa":"bapak","teks":"Ayo masuk, Gus. Bapak buatkan kopi. Ceritakan semua kabarmu."}]}]}}],"hasil":{"tolong":{"reputasi":3,"agus_bantu":4,"popup":{"judul":"Agus Pulang","isi":"Agus pulang menemui Pak Misran dan ikut menjaga warung selama beberapa hari.","daftar":["Agus membantu di warung 4 hari: pembeli 25% lebih sabar","Warga ikut senang: +3 ulasan baik"]}}}},
+			"akrab": false,
+			"tahap": [
+				{"area": "warung", "npc": "agus", "posisi": [560, 605], "hadap": [1, -0.3], "jam": [7, 22], "ransel": true, "datang_dari": [[-20, 395], [300, 505]],
+					"dialog": [
+						{"siapa": "", "teks": "Hari Raya Idulfitri. Takbir masih terdengar dari masjid. Seorang pemuda dengan ransel besar berjalan pelan ke depan warung."},
+						{"siapa": "bapak", "teks": "Mohon maaf lahir batin, Mas. Warung lagi libur Lebaran, tapi kalau ada yang perlu, saya carikan."},
+						{"siapa": "agus", "teks": "Pak..."},
+						{"siapa": "agus", "teks": "Pak, ini Agus."},
+						{"siapa": "", "teks": "Pak Misran terdiam lama. Pemuda di depannya tersenyum, matanya berkaca-kaca."},
+						{"siapa": "bapak", "teks": "Agus...? Ya Allah, Gus. Kamu sudah besar sekali..."},
+						{"siapa": "agus", "teks": "Mohon maaf lahir dan batin, Pak. Agus sengaja nggak bilang-bilang, mau kasih kejutan."},
+						{"siapa": "agus", "teks": "Ibu titip salam. Kata Ibu, Bapak harus jaga kesehatan."},
+						{"siapa": "agus", "teks": "Haji Doni cerita, Bapak kerja keras sekali tiap hari. Kadang warungnya sepi, tapi kiriman buat Agus nggak pernah berhenti."},
+						{"siapa": "bapak", "teks": "Itu sudah kewajiban Bapak, Gus. Yang penting kuliahmu lancar."},
+						{"siapa": "agus", "teks": "Alhamdulillah lancar, Pak. Semua karena doa dan kerja keras Bapak."},
+						{"siapa": "", "teks": "Pak Misran menepuk bahu anaknya lama sekali. Untuk pertama kalinya setelah bertahun-tahun, warung kecil itu terasa seperti rumah."},
+						{"siapa": "agus", "teks": "Agus libur beberapa hari, Pak. Agus bantu jaga warung, ya. Biar Bapak nggak capek sendirian."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Ajak Agus masuk ke warung)"},
+						"opsi": [
+							{"teks": "Ayo masuk, Gus", "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Ayo masuk, Gus. Bapak buatkan kopi. Ceritakan semua soal kuliahmu."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3, "agus_bantu": 4,
+					"popup": {"judul": "Agus Pulang", "isi": "Agus mudik Lebaran dan ikut menjaga warung selama beberapa hari.",
+						"daftar": ["Agus membantu di warung 4 hari: pembeli 25% lebih sabar", "Warga ikut senang: +3 ulasan baik"]}}
+			}
+		},
+		"takjil_masjid": {"janji": true, 
+			"_keterangan": "Ramadan (29 Okt): hanya selama bulan puasa (hari 56-84, lihat GameState.RAMADAN_MULAI / HARI_LEBARAN).",
+			"level_min": 1,
+			"judul": "Takjil Masjid",
+			"hari_min": 56,
+			"hari_maks": 84, "susulan": {"kabar":["Haji Doni","Pak Misran, kalau sempat mampir ke masjid, ya. Ada yang ingin saya bicarakan soal kas takjil.","rt"],"tahap":[{"area":"masjid","npc":"haji_doni","posisi":[690,590],"hadap":[1,-0.3],"jam":[7,21],"misi":"Temui Haji Doni di masjid soal kas takjil","dialog":[{"siapa":"haji_doni","teks":"Assalamualaikum, Pak Misran. Ramadan kemarin kas takjil masjid sempat kurang, sampai sekarang masih ada yang belum terbayar."},{"siapa":"haji_doni","teks":"Kalau warung Bapak berkenan ikut menutupnya, sekalian mengisi kas untuk Ramadan berikutnya, insyaallah berkah."},{"siapa":"","teks":"Sumbangan kas takjil kira-kira Rp100.000."}],"pilihan":{"tanya":{"siapa":"bapak","teks":"(Sumbang kas takjil masjid Rp100.000?)"},"opsi":[{"teks":"Sumbang (Rp100.000)","biaya":100000,"aksi":"tolong","dialog":[{"siapa":"bapak","teks":"Insyaallah, Haji Doni. Ini sumbangan dari warung."},{"siapa":"haji_doni","teks":"Jazakallah khair, Pak Misran. Nanti saya umumkan di masjid."}]},{"teks":"Maaf, belum bisa","aksi":"tolak","dialog":[{"siapa":"bapak","teks":"Mohon maaf, Haji Doni, warung sedang seret. Semoga ada rezeki lain."},{"siapa":"haji_doni","teks":"Tidak apa-apa, Pak. Doakan saja kas masjid cukup."}]},{"teks":"Nanti dulu","aksi":"tunda","dialog":[{"siapa":"haji_doni","teks":"Iya, Pak. Kabari saya kalau sudah siap."}]}]}}],"hasil":{"tolong":{"reputasi":3,"ramai":0.02,"pelanggan":{"santri_putih":1.3,"santri_hitam":1.3,"nenek":1.2},"chat":[["Haji Doni","Bapak-Ibu, kekurangan kas takjil masjid sudah ditutup sumbangan warung Pak Misran. Jazakallah khair!","rt"]],"popup":{"judul":"Takjil Masjid","isi":"Sumbangan Pak Misran menutup kekurangan kas takjil masjid. Jamaah jadi sering mampir ke warung.","daftar":["Jamaah & santri lebih sering belanja","Warung 2% lebih ramai","Warga memberi ulasan baik"]}},"tolak":{"popup":{"judul":"Takjil Masjid","isi":"Pak Misran belum bisa menyumbang kas takjil masjid.","daftar":[]}}},"obrolan":{"tolong":{"haji_doni":[[{"siapa":"warga","teks":"Kas takjil masjid sudah aman, Pak, berkat sumbangan Bapak."},{"siapa":"bapak","teks":"Alhamdulillah, Haji Doni. Semoga berkah."}]]}}},
+			"tahap": [
+				{"area": "masjid", "npc": "haji_doni", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [9, 17],
+					"dialog": [
+						{"siapa": "haji_doni", "teks": "Assalamualaikum, Pak Misran. Setiap sore selama Ramadan, masjid menyiapkan takjil gratis untuk jamaah dan musafir yang lewat."},
+						{"siapa": "haji_doni", "teks": "Kas masjid sedang menipis. Kalau warung Bapak berkenan menyumbang teh botol dan kurma untuk buka bersama, insyaallah berkah."},
+						{"siapa": "", "teks": "Sumbangan takjil untuk sisa Ramadan kira-kira Rp100.000."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Sumbang takjil buka bersama Rp100.000?)"},
+						"opsi": [
+							{"teks": "Sumbang (Rp100.000)", "biaya": 100000, "aksi": "tolong", "dialog": [
+								{"siapa": "bapak", "teks": "Insyaallah, Haji Doni. Nanti sore saya antar ke masjid."},
+								{"siapa": "haji_doni", "teks": "Jazakallah khair, Pak Misran. Nanti saya umumkan, takjilnya dari warung Bapak."}
+							]},
+							{"teks": "Maaf, belum bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Mohon maaf, Haji Doni, warung sedang seret. Semoga ada rezeki lain."},
+								{"siapa": "haji_doni", "teks": "Tidak apa-apa, Pak. Doakan saja kas masjid cukup."}
+							]},
+							{"teks": "Nanti dulu", "aksi": "tunda", "dialog": [
+								{"siapa": "haji_doni", "teks": "Iya, Pak. Kabari saya kalau sudah siap."}
+							]}
+						]
+					}
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3, "ramai": 0.02, "pelanggan": {"santri_putih": 1.3, "santri_hitam": 1.3, "nenek": 1.2},
+					"chat": [["Haji Doni", "Bapak-Ibu, takjil buka bersama di masjid Ramadan ini disumbang warung Pak Misran. Jazakallah khair!", "rt"]],
+					"popup": {"judul": "Takjil Masjid", "isi": "Takjil dari warung Pak Misran dibagikan setiap sore di masjid. Jamaah jadi sering mampir ke warung.",
+						"daftar": ["Jamaah & santri lebih sering belanja", "Warung 2% lebih ramai", "Warga memberi ulasan baik"]}},
+				"tolak": {"popup": {"judul": "Takjil Masjid", "isi": "Pak Misran belum bisa menyumbang takjil tahun ini.", "daftar": []}}
+			},
+			"obrolan": {
+				"tolong": {"haji_doni": [
+					[{"siapa": "warga", "teks": "Takjil dari warung Bapak laris, Pak. Jamaah senang sekali."}, {"siapa": "bapak", "teks": "Alhamdulillah, Haji Doni. Semoga berkah."}]
+				]}
+			}
+		},
+		"abah_tersesat": {
+			"level_min": 5,
+			"judul": "Abah Karta Tersesat",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "masjid", "npc": "petani", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [16, 21],
+					"dialog": [
+						{"siapa": "", "teks": "Abah Karta berdiri sendirian di depan masjid. Sarungnya terbalik, matanya terus menatap pintu masjid."},
+						{"siapa": "petani", "teks": "Eh, Misran... Abah lagi nungguin Ambu. Katanya sebentar lagi beres ngaji."},
+						{"siapa": "bapak", "teks": "(Ambu, istri Abah Karta, sudah wafat lima tahun lalu...)"},
+						{"siapa": "petani", "teks": "Ambu teh suka lupa waktu kalau sudah ngaji. Nanti nasinya keburu dingin."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Apa yang Pak Misran katakan?)"},
+						"opsi": [
+							{"teks": "Temani Abah dan ajak pulang pelan-pelan", "aksi": "lanjut", "hilang": true, "dialog": [
+								{"siapa": "bapak", "teks": "Abah, anginnya mulai dingin. Kita tunggu Ambu di rumah saja, yuk. Saya antar."},
+								{"siapa": "petani", "teks": "Iya, ya... Ambu mah pasti pulang sendiri. Dia hafal jalan."},
+								{"siapa": "", "teks": "Pak Misran menuntun Abah Karta pulang. Sepanjang jalan, Abah bercerita tentang Ambu seolah baru kemarin."},
+								{"siapa": "", "teks": "Ceritakan kejadian ini kepada Pak RT di pos ronda (area Rumah Warga)."}
+							]},
+							{"teks": "\"Abah, Ambu kan sudah meninggal\"", "aksi": "ulang", "dialog": [
+								{"siapa": "petani", "teks": "Meninggal...? (Abah terdiam lama, lalu menangis seperti baru pertama kali mendengarnya.)"},
+								{"siapa": "bapak", "teks": "(Sepertinya bukan begini caranya. Abah butuh ditemani, bukan diingatkan.)"}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Abah, saya ke warung dulu sebentar, ya."},
+								{"siapa": "petani", "teks": "Iya, Misran. Abah di sini saja, nungguin Ambu."}
+							]}
+						]
+					}
+				},
+				{"misi": "Ceritakan soal Abah Karta ke Pak RT", "area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Pak RT, tadi saya ketemu Abah Karta di masjid. Beliau nungguin Ambu..."},
+						{"siapa": "pak_rt", "teks": "Astaghfirullah. Sudah dua kali minggu ini, Pak. Kemarin Bu Ida menemukan Abah di jembatan sawah waktu pulang dari pasar."},
+						{"siapa": "pak_rt", "teks": "Anak-anaknya di Jakarta semua. Ditelepon katanya sibuk, nanti Lebaran pulang."},
+						{"siapa": "bapak", "teks": "Kasihan, Pak. Abah tinggal sendirian di rumah sebesar itu."},
+						{"siapa": "pak_rt", "teks": "Bagaimana kalau warga bergiliran menengok Abah? Pagi Bapak sebelum buka warung, sore Bu Ida sepulang dari pasar, malam saya."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Ikut bergiliran menengok Abah Karta?)"},
+						"opsi": [
+							{"teks": "Saya ikut, pagi biar saya", "aksi": "lanjut", "dialog": [
+								{"siapa": "pak_rt", "teks": "Alhamdulillah. Coba tengok Abah di sawah, ya. Biasanya beliau ada di sawah."},
+								{"siapa": "", "teks": "Tengok Abah Karta di sawah."}
+							]},
+							{"teks": "Saya sibuk di warung, Pak", "aksi": "tolak", "dialog": [
+								{"siapa": "pak_rt", "teks": "Ya sudah, Pak. Biar saya cari warga lain."}
+							]}
+						]
+					}
+				},
+				{"misi": "Tengok Abah Karta di sawah", "area": "sawah", "npc": "petani", "posisi": [380, 512], "hadap": [1, 0.4], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "petani", "teks": "Pak Misran! Sini, sini. Abah dengar dari Pak RT... Abah bikin repot, ya?"},
+						{"siapa": "bapak", "teks": "Nggak repot, Abah. Saya senang nemenin Abah ngobrol."},
+						{"siapa": "petani", "teks": "Kadang kepala Abah teh kayak berkabut. Abah lupa Ambu sudah nggak ada. Terus ingat lagi, terus sedih lagi."},
+						{"siapa": "petani", "teks": "Tapi tadi Abah ingat satu hal: waktu kecil Pak Misran suka nyolong jambu di kebun Ambu, hahaha."},
+						{"siapa": "bapak", "teks": "Hahaha, Abah masih ingat saja. Ambu malah ngasih saya sekantong, katanya biar nggak nyolong lagi."},
+						{"siapa": "petani", "teks": "Iya... Ambu memang begitu. Hatur nuhun, Pak Misran. Sudah mau jadi teman orang tua ini."},
+						{"siapa": "", "teks": "Mulai hari itu warga bergiliran menengok Abah Karta. Abah tidak pernah lagi tersesat sendirian."}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 2,
+					"popup": {"judul": "Abah Tidak Sendirian", "isi": "Warga bergiliran menengok Abah Karta setiap hari. Kabar kebaikan ini tersebar di grup RT.",
+						"daftar": ["Abah Karta dan Pak RT makin akrab dengan Pak Misran", "+2 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Pak RT mencari warga lain untuk menengok Abah Karta.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"petani": [
+						[{"siapa": "warga", "teks": "Tadi pagi Abah bangun, langsung ingat: hari ini giliran Pak Misran nengok. Abah sudah nunggu di saung, hehe."}, {"siapa": "bapak", "teks": "Saya bawakan teh manis, Abah."}]
+					],
+					"pak_rt": [
+						[{"siapa": "warga", "teks": "Jadwal nengok Abah Karta sekarang penuh, Pak. Malah warga rebutan giliran."}, {"siapa": "bapak", "teks": "Alhamdulillah, Pak RT. Kampung kita memang begini."}]
+					]
+				}
+			}
+		},
+		"rahasia_rudi": {"janji": true, 
+			"level_min": 8,
+			"judul": "Rahasia Pak Rudi",
+			"hari_min": 1,
+			"bukan_ramadan": true,
+			"tahap": [
+				{"area": "masjid", "npc": "kantoran", "posisi": [360, 722], "hadap": [1, 0.3], "jam": [10, 15],
+					"dialog": [
+						{"siapa": "", "teks": "Pak Rudi berdiri di depan masjid dengan kemeja kantor dan tas kerjanya. Matanya kosong."},
+						{"siapa": "kantoran", "teks": "Eh... Pak Misran. Saya... lagi istirahat."},
+						{"siapa": "bapak", "teks": "Kantor Bapak kan di kota, Pak Rudi. Jauh sekali istirahatnya sampai ke sini."},
+						{"siapa": "kantoran", "teks": "(lama terdiam) Saya kena PHK, Pak. Sudah dua minggu."},
+						{"siapa": "kantoran", "teks": "Tiap pagi saya tetap pakai kemeja dan pamit kerja ke istri. Terus saya diam di sini sampai sore. Saya malu, Pak."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Apa yang Pak Misran lakukan?)"},
+						"opsi": [
+							{"teks": "Dengarkan Pak Rudi", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Malu kenapa, Pak? Bapak nggak mencuri, nggak menipu. Perusahaannya yang tutup."},
+								{"siapa": "kantoran", "teks": "Anak saya mau masuk SMP, Pak. Istri saya pikir semuanya baik-baik saja..."},
+								{"siapa": "bapak", "teks": "Istri itu teman hidup, Pak, bukan tamu. Beban seberat ini jangan dipikul sendirian."},
+								{"siapa": "bapak", "teks": "Saya coba tanya Kang Asep. Dia kenal banyak orang, siapa tahu ada lowongan."},
+								{"siapa": "", "teks": "Tanyakan lowongan kerja kepada Kang Asep di depan SD."}
+							]},
+							{"teks": "Pura-pura tidak tahu", "aksi": "tolak", "dialog": [
+								{"siapa": "bapak", "teks": "Oh, begitu. Ya sudah, saya duluan, Pak Rudi."},
+								{"siapa": "", "teks": "Pak Rudi menunduk. Ia kembali menatap pintu masjid sendirian."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "bapak", "teks": "Pak Rudi, nanti saya ke sini lagi, ya."},
+								{"siapa": "kantoran", "teks": "Iya, Pak... saya di sini sampai sore."}
+							]}
+						]
+					}
+				},
+				{"misi": "Tanya lowongan ke Kang Asep di depan SD", "area": "sd", "npc": "ojek", "posisi": [640, 620], "hadap": [1, 0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Kang Asep, kenal yang lagi cari pegawai? Untuk teman saya. Orangnya jujur dan rajin."},
+						{"siapa": "ojek", "teks": "Hmm... Oh! Koperasi sekolah SD ini lagi cari bendahara, Pak. Kemarin kepala sekolahnya nanya ke saya."},
+						{"siapa": "ojek", "teks": "Memang nggak sebesar kantor di kota. Tapi dekat, nggak usah macet-macetan tiap hari."},
+						{"siapa": "bapak", "teks": "Wah, cocok sekali. Teman saya biasa pegang pembukuan."},
+						{"siapa": "ojek", "teks": "Suruh datang ke sini besok pagi, Pak. Bilang saja dari Kang Asep."},
+						{"siapa": "", "teks": "Kabari Pak Rudi. Ia sedang di depan warung."}
+					],
+					"aksi": "lanjut"
+				},
+				{"misi": "Kabari Pak Rudi di depan warung", "area": "warung", "npc": "kantoran", "posisi": [430, 600], "hadap": [1, -0.2], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "kantoran", "teks": "Pak Misran! Saya... akhirnya cerita ke istri."},
+						{"siapa": "kantoran", "teks": "Saya kira dia bakal marah. Ternyata dia cuma memeluk saya dan bilang, \"Kenapa nggak dari dulu, Pak?\""},
+						{"siapa": "bapak", "teks": "Alhamdulillah. Dan ada kabar baik: koperasi SD sedang cari bendahara. Kang Asep yang kasih tahu."},
+						{"siapa": "kantoran", "teks": "Ya Allah... Kecil pun nggak apa-apa, Pak. Yang penting saya bisa pulang sore tanpa bohong lagi."},
+						{"siapa": "kantoran", "teks": "Saya sempat merasa jadi orang paling gagal di kampung ini."},
+						{"siapa": "bapak", "teks": "Di kampung ini nggak ada yang jatuh sendirian, Pak Rudi."}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 2,
+					"popup": {"judul": "Pak Rudi Bangkit", "isi": "Pak Rudi sekarang menjadi bendahara koperasi SD dan bisa pulang sore tanpa menyimpan rahasia lagi.",
+						"daftar": ["Pak Rudi dan Kang Asep makin akrab dengan Pak Misran", "+2 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Beberapa minggu kemudian terdengar kabar Pak Rudi sekeluarga pindah ke rumah mertuanya di kota.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"kantoran": [
+						[{"siapa": "warga", "teks": "Pak Misran, buku kas koperasi sekarang rapi. Kepala sekolah senang sekali."}, {"siapa": "bapak", "teks": "Alhamdulillah, Pak Rudi memang ahlinya."}],
+						[{"siapa": "warga", "teks": "Sekarang saya bisa jemput anak pulang sekolah, Pak. Dulu mana sempat."}, {"siapa": "bapak", "teks": "Itu rezeki yang nggak kelihatan, Pak."}]
+					]
+				}
+			}
+		},
+		"wisuda_fadil": {"janji": true, 
+			"level_min": 8,
+			"judul": "Wali Wisuda Kang Fadil",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "pesantren", "npc": "santri_putih", "posisi": [640, 600], "hadap": [-0.6, 1], "jam": [8, 17],
+					"dialog": [
+						{"siapa": "santri_putih", "teks": "Pak Misran! Alhamdulillah, saya sudah khatam hafalan 30 juz."},
+						{"siapa": "bapak", "teks": "MasyaAllah, Kang Fadil! Bapak ikut bangga."},
+						{"siapa": "santri_putih", "teks": "Sebentar lagi wisuda tahfiz. Setiap santri didampingi orang tuanya naik panggung..."},
+						{"siapa": "santri_putih", "teks": "Bapak saya sakit di Garut, Emak harus menjaga beliau. Mereka nggak bisa datang."},
+						{"siapa": "santri_putih", "teks": "Saya malu minta, Pak... tapi maukah Bapak jadi wali saya di panggung nanti?"}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Jadi wali wisuda Kang Fadil?)"},
+						"opsi": [
+							{"teks": "Dengan senang hati, Kang", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Dengan senang hati, Kang. Anggap saja Bapak ini bapakmu di sini."},
+								{"siapa": "santri_putih", "teks": "Hatur nuhun, Pak... (matanya berkaca-kaca)"},
+								{"siapa": "", "teks": "Pak Misran tidak punya baju koko yang pantas. Coba pinjam ke Haji Doni di masjid."}
+							]},
+							{"teks": "Maaf, saya tidak bisa", "aksi": "tolak", "dialog": [
+								{"siapa": "santri_putih", "teks": "Iya, Pak, saya mengerti. Nanti saya naik panggung sendiri saja."}
+							]},
+							{"teks": "Nanti saya kabari", "aksi": "tunda", "dialog": [
+								{"siapa": "santri_putih", "teks": "Iya, Pak. Wisudanya masih beberapa hari lagi."}
+							]}
+						]
+					}
+				},
+				{"misi": "Pinjam baju koko ke Haji Doni", "area": "masjid", "npc": "haji_doni", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Haji Doni, saya mau jadi wali wisuda Kang Fadil. Boleh pinjam baju koko yang pantas?"},
+						{"siapa": "haji_doni", "teks": "Wali wisuda tahfiz? MasyaAllah, itu kehormatan besar, Pak Misran."},
+						{"siapa": "haji_doni", "teks": "Ini koko putih yang saya pakai waktu walimah anak saya. Pakailah. Pecinya juga."},
+						{"siapa": "haji_doni", "teks": "Dulu waktu saya mondok, bapak saya juga tidak bisa datang. Yang menemani saya naik panggung tukang becak depan pondok. Sampai sekarang saya mendoakan beliau."},
+						{"siapa": "bapak", "teks": "Insyaallah saya jaga baik-baik, Haji Doni."},
+						{"siapa": "", "teks": "Datang ke pesantren untuk menemani Kang Fadil di hari wisuda."}
+					],
+					"aksi": "lanjut"
+				},
+				{"misi": "Dampingi Kang Fadil di wisuda", "area": "pesantren", "npc": "santri_putih", "posisi": [640, 600], "hadap": [-0.6, 1], "jam": [7, 21],
+					"pendamping": [{"npc": "santri_hitam", "posisi": [740, 610], "hadap": [-0.8, -0.1]}, {"npc": "haji_doni", "posisi": [800, 640], "hadap": [-1, -0.2]}, {"npc": "pak_rt", "posisi": [870, 610], "hadap": [-1, 0.1]}],
+					"dialog": [
+						{"siapa": "", "teks": "Wisuda baru saja selesai di aula pesantren. Pak Misran tadi mendampingi Kang Fadil naik panggung. Surat Ar-Rahman dilantunkannya tanpa sekali pun tersendat."},
+						{"siapa": "santri_hitam", "teks": "Fadil, tadi merdu sekali! Pak Misran sampai menahan air mata."},
+						{"siapa": "haji_doni", "teks": "Hari ini Bapak jadi wali yang pantas, Pak Misran. Masyaallah."},
+						{"siapa": "santri_putih", "teks": "Koko putih Bapak tadi mirip punya Bapak saya, kalau beliau mau berangkat ke masjid."},
+						{"siapa": "santri_putih", "teks": "Emak tadi ikut lihat lewat video call, Pak. Beliau menangis, sambil mengarahkan HP ke Bapak yang terbaring."},
+						{"siapa": "bapak", "teks": "(Pak Misran teringat Agus. Suatu hari nanti, ia juga ingin berdiri di samping anaknya seperti ini.)"},
+						{"siapa": "santri_putih", "teks": "Hatur nuhun, Pak. Hari ini saya nggak merasa sendirian."}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 3,
+					"popup": {"judul": "Wali Wisuda", "isi": "Kang Fadil diwisuda sebagai hafiz 30 juz dengan Pak Misran di sampingnya. Seluruh pesantren mengenal kebaikan pemilik warung itu.",
+						"daftar": ["Kang Fadil, Kang Hasan, dan Haji Doni makin akrab dengan Pak Misran", "+3 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Kang Fadil naik panggung wisuda seorang diri.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"santri_putih": [
+						[{"siapa": "warga", "teks": "Pak, Emak titip salam. Katanya kalau ke Cianjur, mau mampir ke warung Bapak."}, {"siapa": "bapak", "teks": "Wah, Bapak tunggu, Kang."}]
+					]
+				}
+			}
+		},
+		"dadan_membaca": {
+			"level_min": 9,
+			"judul": "Rahasia Kang Dadan",
+			"hari_min": 1,
+			"setelah": "istri_kang_dadan",
+			"tahap": [
+				{"area": "warung", "npc": "kurir", "posisi": [560, 605], "hadap": [1, -0.3], "jam": [16, 21],
+					"dialog": [
+						{"siapa": "", "teks": "Kang Dadan berdiri di depan warung, menatap layar HP lama sekali."},
+						{"siapa": "kurir", "teks": "Pak Misran... boleh minta tolong bacakan ini? Mata saya... eh, HP saya buram."},
+						{"siapa": "bapak", "teks": "(Layar HP-nya jelas sekali.) Ini pesan dari kantor ekspedisi, Kang. Mulai bulan depan semua alamat hanya lewat aplikasi."},
+						{"siapa": "kurir", "teks": "(menghela napas) Saya nggak bisa baca, Pak. Dari dulu saya hafalkan rumah orang dari warna pagar sama nama warung."},
+						{"siapa": "kurir", "teks": "Kalau ketahuan, saya bisa diberhentikan. Anak saya masih bayi, Pak..."}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Bantu Kang Dadan belajar membaca?)"},
+						"opsi": [
+							{"teks": "Saya ajari tiap malam di warung", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Belajar membaca nggak ada kata terlambat, Kang. Tiap malam sesudah warung tutup, kita belajar di sini."},
+								{"siapa": "kurir", "teks": "Beneran, Pak? Saya kira Bapak bakal ketawa..."},
+								{"siapa": "bapak", "teks": "Kita butuh buku belajar membaca. Neng Shinta pasti masih punya buku lamanya."},
+								{"siapa": "", "teks": "Pinjam buku belajar membaca ke Neng Shinta di SD."}
+							]},
+							{"teks": "Coba minta tolong teman kantor", "aksi": "tolak", "dialog": [
+								{"siapa": "kurir", "teks": "Iya, Pak... nanti saya coba."}
+							]},
+							{"teks": "Nanti saja", "aksi": "tunda", "dialog": [
+								{"siapa": "kurir", "teks": "Iya, Pak. Tolong jangan bilang siapa-siapa, ya."}
+							]}
+						]
+					}
+				},
+				{"misi": "Pinjam buku belajar membaca ke Neng Shinta", "area": "sd", "npc": "siswi", "posisi": [900, 600], "hadap": [-1, 0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "bapak", "teks": "Neng Shinta, masih punya buku belajar membaca waktu SD dulu?"},
+						{"siapa": "siswi", "teks": "Masih, Pak! Buku \"Ini Budi\" sama buku latihan menulis huruf. Buat siapa, Pak?"},
+						{"siapa": "bapak", "teks": "Buat teman Bapak. Rahasia, ya, Neng."},
+						{"siapa": "siswi", "teks": "Siap, Pak! Saya selipkan juga kartu huruf buatan saya. Bilang ke temannya: semangat!"},
+						{"siapa": "", "teks": "Temui Kang Dadan di depan warung."}
+					],
+					"aksi": "lanjut"
+				},
+				{"misi": "Belajar membaca dengan Kang Dadan", "area": "warung", "npc": "kurir", "posisi": [560, 605], "hadap": [1, -0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "", "teks": "Sejak itu Kang Dadan rajin belajar huruf demi huruf sesudah warung tutup. Hari ini ia ingin menunjukkan hasilnya."},
+						{"siapa": "kurir", "teks": "Pak... coba dengar. \"I-ni Bu-di. I-ni i-bu Bu-di.\""},
+						{"siapa": "bapak", "teks": "Lancar, Kang! Sekarang coba yang ini."},
+						{"siapa": "", "teks": "Pak Misran menunjuk tulisan di kertas kado kecil yang dibawa Kang Dadan."},
+						{"siapa": "kurir", "teks": "\"Un-tuk... Mis-bah.\" Misbah... Itu nama anak saya, Pak."},
+						{"siapa": "kurir", "teks": "Saya baru pertama kali bisa membaca nama anak saya sendiri..."},
+						{"siapa": "bapak", "teks": "Nanti kalau Misbah sudah besar, Kang Dadan yang bacakan dongeng sebelum tidur, ya."},
+						{"siapa": "kurir", "teks": "(tertawa sambil mengusap mata) Insyaallah, Pak. Insyaallah."}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 2,
+					"popup": {"judul": "Kang Dadan Bisa Membaca", "isi": "Kang Dadan kini bisa membaca alamat di aplikasi sendiri. Rahasianya aman bersama Pak Misran dan Neng Shinta.",
+						"daftar": ["Kang Dadan dan Neng Shinta makin akrab dengan Pak Misran", "+2 ulasan bintang 5 dari warga"]}},
+				"tolak": {
+					"popup": {"judul": "Cerita Selesai", "isi": "Kang Dadan berhenti jadi kurir dan bekerja sebagai kuli angkut di pasar.",
+						"daftar": ["Tidak ada perubahan"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"kurir": [
+						[{"siapa": "warga", "teks": "Pak, tadi saya baca papan nama warung Bapak dari jauh. Sekarang semua tulisan kelihatan, hehe."}, {"siapa": "bapak", "teks": "Hebat, Kang! Nanti kita lanjut belajar menulis."}]
+					],
+					"siswi": [
+						[{"siapa": "warga", "teks": "Pak, teman rahasia Bapak sudah lancar membaca? Kartu hurufnya berguna, kan?"}, {"siapa": "bapak", "teks": "Berguna sekali, Neng. Katanya terima kasih."}]
+					]
+				}
+			}
+		},
+		"kampung_kita": {
+			"level_min": 10,
+			"judul": "Kampung Kita",
+			"hari_min": 1,
+			"tahap": [
+				{"area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [8, 20],
+					"dialog": [
+						{"siapa": "", "teks": "Pak RT memegang selembar surat berkop kecamatan. Wajahnya pucat."},
+						{"siapa": "pak_rt", "teks": "Pak Misran, ini surat dari kecamatan. Ada rencana jalan tol baru, dan jalurnya lewat kampung kita."},
+						{"siapa": "pak_rt", "teks": "Rumah warga, masjid, sawah Abah Karta... warung Bapak juga. Semua masuk peta pembebasan lahan."},
+						{"siapa": "bapak", "teks": "Ya Allah... Pak RT, kampung ini sudah ada sejak zaman kakek kita."},
+						{"siapa": "pak_rt", "teks": "Masih ada jalan, Pak. Kecamatan membuka musyawarah. Kalau seluruh warga asli sepakat dan mengusulkan jalur lain lewat lahan kosong di utara, usulan kita wajib dipertimbangkan."},
+						{"siapa": "pak_rt", "teks": "Tapi tanda tangannya harus sebanyak mungkin. Makin sedikit yang setuju, makin lemah usulan kita."},
+						{"siapa": "pak_rt", "teks": "Saya harus mengurus surat ke kecamatan. Bapak paling dekat dengan warga... maukah Bapak menemui mereka satu per satu?"}
+					],
+					"pilihan": {
+						"tanya": {"siapa": "bapak", "teks": "(Menemui seluruh warga kampung dan meminta persetujuan mereka?)"},
+						"opsi": [
+							{"teks": "Saya temui semuanya, Pak RT", "aksi": "lanjut", "dialog": [
+								{"siapa": "bapak", "teks": "Saya temui semuanya, Pak RT. Warung tutup sebentar pun nggak apa-apa."},
+								{"siapa": "pak_rt", "teks": "Bawa lembar tanda tangan ini. Semoga Allah memudahkan."},
+								{"siapa": "", "teks": "Temui setiap warga bertanda \"!\" di seluruh kampung (Rumah Warga, Warung, Masjid, Sawah, SD, Pesantren, dan Bu Ida di Pasar) dan minta tanda tangan mereka."}
+							]},
+							{"teks": "Saya tidak mau ikut campur", "aksi": "tolak", "dialog": [
+								{"siapa": "pak_rt", "teks": "...Begitu, ya, Pak. Baiklah, biar saya dan warga lain yang berkeliling."}
+							]},
+							{"teks": "Beri saya waktu berpikir", "aksi": "tunda", "dialog": [
+								{"siapa": "pak_rt", "teks": "Jangan terlalu lama, Pak. Batas waktunya tidak panjang."}
+							]}
+						]
+					}
+				},
+				{"misi": "Minta tanda tangan seluruh warga", "jam": [7, 21],
+					"temui": [
+						{"npc": "nenek", "area": "rumah", "posisi": [585, 470], "hadap": [1, 0.4], "dialog": [
+							{"siapa": "nenek", "teks": "Digusur? Nenek lahir di rumah ini, Misran. Suami Nenek juga berpulang di sini."},
+							{"siapa": "nenek", "teks": "Mana pulpennya. Tangan Nenek gemetar, tapi tanda tangan Nenek masih bagus."},
+							{"siapa": "", "teks": "Nenek Sumi menandatangani pelan-pelan, huruf demi huruf."}]},
+						{"npc": "giska", "area": "rumah", "posisi": [480, 434], "hadap": [1, 0.4], "dialog": [
+							{"siapa": "giska", "teks": "Saya kan warga baru, Pak. Boleh ikut tanda tangan?"},
+							{"siapa": "bapak", "teks": "Mba Giska sudah warga kampung ini. Neo juga."},
+							{"siapa": "giska", "teks": "(tersenyum) Kalau begitu saya tanda tangan dengan bangga. Di kota saya nggak pernah punya kampung seperti ini."}]},
+						{"npc": "kantoran", "area": "warung", "posisi": [430, 600], "hadap": [1, -0.2], "dialog": [
+							{"siapa": "kantoran", "teks": "Kampung ini tempat anak saya belajar naik sepeda, Pak. Tentu saya tanda tangan."},
+							{"siapa": "kantoran", "teks": "Kalau perlu, saya bantu ketik surat keberatannya. Saya biasa bikin laporan."}]},
+						{"npc": "kurir", "area": "warung", "posisi": [560, 605], "hadap": [1, -0.3], "dialog": [
+							{"siapa": "kurir", "teks": "Saya antar paket ke seluruh kampung ini, Pak. Tiap pagar saya hafal."},
+							{"siapa": "kurir", "teks": "Kalau kampung ini hilang, hilang juga peta di kepala saya. Mana, saya tanda tangan."}]},
+						{"npc": "tukang", "area": "masjid", "posisi": [360, 722], "hadap": [1, 0.3], "dialog": [
+							{"siapa": "tukang", "teks": "Genteng masjid ini saya yang benerin tiap musim hujan, Pak."},
+							{"siapa": "tukang", "teks": "Masa mau diratakan buat jalan tol? Saya tanda tangan, pakai cap jempol sekalian!"}]},
+						{"npc": "haji_doni", "area": "masjid", "posisi": [690, 590], "hadap": [1, -0.3], "dialog": [
+							{"siapa": "haji_doni", "teks": "Masjid ini tanah wakaf kakek saya, Pak Misran. Tanah wakaf tidak boleh dijual."},
+							{"siapa": "haji_doni", "teks": "Saya tanda tangan, dan surat wakafnya saya bawa ke musyawarah. Biar mereka lihat sendiri."}]},
+						{"npc": "petani", "area": "sawah", "posisi": [380, 512], "hadap": [1, 0.4], "dialog": [
+							{"siapa": "petani", "teks": "Sawah ini Abah tanam bareng Ambu waktu masih muda..."},
+							{"siapa": "petani", "teks": "Abah mungkin suka lupa banyak hal, Pak Misran. Tapi Abah nggak akan lupa tanah ini."},
+							{"siapa": "", "teks": "Abah Karta menandatangani dengan tangan bergetar."}]},
+						{"npc": "ibu_rumah_tangga", "area": "pasar", "posisi": [640, 508], "hadap": [0.35, 1], "_catatan": "7 Nov: Bu Ida penjual buah, tanda tangannya di lapak pasar (dulu sawah [628, 546]).", "dialog": [
+							{"siapa": "", "teks": "Bu Ida sedang menata buah di lapaknya."},
+							{"siapa": "ibu_rumah_tangga", "teks": "Pak, saya takut. Katanya ganti ruginya besar. Suami saya sempat tergoda..."},
+							{"siapa": "bapak", "teks": "Uang bisa habis, Bu. Tetangga yang saling tolong begini nggak bisa dibeli."},
+							{"siapa": "ibu_rumah_tangga", "teks": "...Iya, Pak. Waktu sawah kami gagal panen, yang bantu ya warga sini. Saya tanda tangan."}]},
+						{"npc": "pelajar", "area": "sawah", "posisi": [948, 516], "hadap": [-1, -0.2], "dialog": [
+							{"siapa": "pelajar", "teks": "Pak, saya sudah 17 tahun! Tanda tangan saya sah, kan?"},
+							{"siapa": "bapak", "teks": "Sah, Dimas."},
+							{"siapa": "pelajar", "teks": "Saya juga mau bikin video soal kampung kita, Pak. Biar orang kota tahu kampung ini indah."}]},
+						{"npc": "anak", "area": "sd", "posisi": [760, 560], "hadap": [-0.4, 1], "dialog": [
+							{"siapa": "anak", "teks": "Pak Misran, kampung kita mau dihapus?"},
+							{"siapa": "bapak", "teks": "Belum, Cup. Makanya Bapak minta tanda tangan semua orang."},
+							{"siapa": "anak", "teks": "Ucup belum bisa tanda tangan... Ucup gambar saja, ya? Ini gambar warung Pak Misran."},
+							{"siapa": "", "teks": "Ucup menggambar warung kecil dengan matahari besar di atasnya. Pak Misran menyelipkannya di lembar tanda tangan."}]},
+						{"npc": "siswi", "area": "sd", "posisi": [900, 600], "hadap": [-1, 0.3], "dialog": [
+							{"siapa": "siswi", "teks": "Pak, teman-teman sekelas juga mau bikin poster: \"Kampung Kami Bukan Jalan Tol\"!"},
+							{"siapa": "siswi", "teks": "Tanda tangan saya pakai pulpen warna pink, ya, Pak, hehe."}]},
+						{"npc": "ojek", "area": "sd", "posisi": [640, 620], "hadap": [1, 0.3], "dialog": [
+							{"siapa": "ojek", "teks": "Jalan tol mah buat orang lewat, Pak. Kita mah orang yang tinggal."},
+							{"siapa": "ojek", "teks": "Anak-anak ojek pangkalan juga mau datang ke musyawarah. Saya tanda tangan!"}]},
+						{"npc": "santri_putih", "area": "pesantren", "posisi": [640, 600], "hadap": [-0.6, 1], "dialog": [
+							{"siapa": "santri_putih", "teks": "Pesantren juga dapat surat yang sama, Pak. Kiai sudah menandatanganinya."},
+							{"siapa": "santri_putih", "teks": "Kami para santri akan ikut ke musyawarah dan mendoakan kampung ini."}]},
+						{"npc": "santri_hitam", "area": "pesantren", "posisi": [740, 610], "hadap": [-0.8, 0.6], "dialog": [
+							{"siapa": "santri_hitam", "teks": "Kampung Emak saya dulu juga digusur, Pak. Sampai akhir hayatnya, Emak masih sering cerita soal rumah lamanya."},
+							{"siapa": "santri_hitam", "teks": "Jangan sampai terjadi lagi di sini. Ini tanda tangan saya."}]}
+					],
+					"dialog_selesai": [
+						{"siapa": "", "teks": "Lembar tanda tangan itu kini penuh: dua belas tanda tangan, satu gambar warung, dan satu cap jempol."},
+						{"siapa": "bapak", "teks": "Alhamdulillah... semuanya setuju. Saya harus segera menemui Pak RT."}
+					],
+					"aksi": "lanjut"
+				},
+				{"misi": "Serahkan tanda tangan ke Pak RT", "area": "rumah", "npc": "pak_rt", "posisi": [255, 362], "hadap": [1, 0.3], "jam": [7, 21],
+					"dialog": [
+						{"siapa": "pak_rt", "teks": "Lengkap, Pak? ...Semuanya?"},
+						{"siapa": "bapak", "teks": "Semuanya, Pak RT. Sampai Ucup ikut menggambar."},
+						{"siapa": "pak_rt", "teks": "(membalik lembar demi lembar) Ya Allah... Musyawarahnya di masjid. Bapak harus ikut bicara di sana."},
+						{"siapa": "", "teks": "Datang ke musyawarah di masjid."}
+					],
+					"aksi": "lanjut"
+				},
+				{"misi": "Hadiri musyawarah di masjid", "area": "masjid", "npc": "haji_doni", "posisi": [690, 590], "hadap": [1, -0.3], "jam": [7, 21],
+					"pendamping": [{"npc": "pak_rt", "posisi": [600, 580], "hadap": [1, 0.1]}, {"npc": "petani", "posisi": [790, 600], "hadap": [-1, 0.1]}, {"npc": "nenek", "posisi": [540, 620], "hadap": [1, -0.2]}, {"npc": "kurir", "posisi": [840, 560], "hadap": [-1, 0.3]}, {"npc": "anak", "posisi": [690, 650], "hadap": [0, -1]}],
+					"dialog": [
+						{"siapa": "", "teks": "Warga berkumpul di halaman masjid. Dua petugas kecamatan menunggu di serambi."},
+						{"siapa": "haji_doni", "teks": "Bapak-bapak dari kecamatan, ini tanda tangan seluruh warga asli. Tidak ada satu pun yang menolak."},
+						{"siapa": "", "teks": "Petugas kecamatan membuka lembar demi lembar. Di halaman terakhir ada gambar warung kecil buatan Ucup."},
+						{"siapa": "haji_doni", "teks": "Pak Misran, silakan. Bapak yang menemui semua warga."},
+						{"siapa": "bapak", "teks": "Bapak-bapak... saya cuma pemilik warung kecil. Saya nggak paham soal peta dan jalan tol."},
+						{"siapa": "bapak", "teks": "Tapi saya tahu, di kampung ini kalau ada yang sakit, tetangga datang bawa bubur. Kalau ada yang tersesat, warga bergantian menjaga."},
+						{"siapa": "bapak", "teks": "Kampung ini bukan sekadar tanah, Pak. Ini keluarga. Tolong jangan pisahkan kami."},
+						{"siapa": "", "teks": "Halaman masjid hening. Lalu warga maju satu per satu: Abah Karta, Nenek Sumi, Kang Dadan, dan Ucup."},
+						{"siapa": "", "teks": "Tidak lama kemudian, surat dari kecamatan datang: jalur tol dipindahkan ke lahan kosong di utara kampung."},
+						{"siapa": "pak_rt", "teks": "(lewat telepon) Pak Misran! Kita berhasil! Kampung kita tetap berdiri!"}
+					],
+					"aksi": "tolong"
+				}
+			],
+			"hasil": {
+				"tolong": {"reputasi": 5,
+					"chat": [["Pak RT", "Bapak-Ibu, alhamdulillah! Kecamatan resmi memindahkan jalur tol ke utara. Terima kasih seluruh warga, terutama Pak Misran yang mengetuk pintu kita satu per satu.", "rt"]],
+					"popup": {"judul": "Kampung Kita Tetap Berdiri", "isi": "Jalur tol dipindahkan. Seluruh warga tahu siapa yang mengetuk pintu mereka satu per satu. Warung Pak Misran kini benar-benar jadi jantung kampung.",
+						"daftar": ["Semua warga yang ditemui makin akrab dengan Pak Misran", "+5 ulasan bintang 5 dari warga"]}},
+				"tolak": {"reputasi": -2,
+					"popup": {"judul": "Cerita Selesai", "isi": "Pak RT dan warga mengumpulkan tanda tangan sendiri. Kampung selamat, tapi warga bertanya-tanya kenapa Pak Misran diam saja.",
+						"daftar": ["2 ulasan bintang 1 dari warga"]}}
+			},
+			"obrolan": {
+				"tolong": {
+					"pak_rt": [
+						[{"siapa": "warga", "teks": "Surat dari kecamatan itu saya bingkai, Pak. Saya pajang di pos ronda."}, {"siapa": "bapak", "teks": "Biar anak cucu tahu ceritanya, ya, Pak RT."}]
+					],
+					"anak": [
+						[{"siapa": "warga", "teks": "Pak Misran, gambar Ucup dipajang di kecamatan, lho! Kata warga, Ucup pahlawan kecil."}, {"siapa": "bapak", "teks": "Memang betul, Cup. Pahlawan kampung kita."}]
+					],
+					"nenek": [
+						[{"siapa": "warga", "teks": "Nenek sekarang tidur nyenyak, Misran. Rumah ini tetap rumah Nenek sampai akhir hayat."}, {"siapa": "bapak", "teks": "Insyaallah, Nek."}]
+					],
+					"ibu_rumah_tangga": [
+						[{"siapa": "warga", "teks": "Untung saya nggak tergoda ganti rugi itu, Pak. Tetangga seperti ini nggak bisa dibeli."}, {"siapa": "bapak", "teks": "Betul, Bu. Kita saling jaga."}]
+					]
+				}
+			}
+		}
+	}
+}

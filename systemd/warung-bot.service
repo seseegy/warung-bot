@@ -1,0 +1,17 @@
+[Unit]
+Description=Bot Telegram Warung Life Simulator (Fase 1 MVP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/hatch/workspace/warung-bot
+EnvironmentFile=/home/hatch/workspace/warung-bot/.env
+ExecStart=/home/hatch/workspace/warung-bot/.venv/bin/python -m bot.main
+Restart=on-failure
+RestartSec=10
+# Jangan pernah mencetak token ke journal: bot tidak me-log token.
+# Pastikan .env hanya bisa dibaca pemilik: chmod 600 .env
+
+[Install]
+WantedBy=multi-user.target

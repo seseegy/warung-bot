@@ -1,0 +1,272 @@
+{
+	"_keterangan": "Alur cerita. Tokoh: Bapak = Pak Misran (pemilik warung di kampung, Cianjur), Agus = anaknya (dipanggil Gus; kuliah di kota, tinggal bersama ibunya; Pak Misran dan istrinya sudah bercerai, ibunya ibu rumah tangga). Setiap bab adalah permintaan Agus yang menjadi salah satu tugas Level Warung 'level' (tugas.json); level tanpa bab tidak punya permintaan Agus. Agus menghubungi saat level itu dimulai (setelah jeda 2 hari, kecuali bab pertama), lalu ada target kiriman uang dalam beberapa hari (durasi). Kalau kiriman lunas, Agus berterima kasih (dialog_selesai); barang di 'buka' baru terbuka saat naik level (dapat bonus stok awal), dengan cerita_naik sebagai keterangan pop-up naik level. Kalau terlambat, batas diperpanjang 'tambahan_hari' dan target naik 'denda_persen'. Di teks dialog: {target} = target kiriman, {batas} = tanggal terakhir (misalnya 23 Januari), {kebutuhan} = kebutuhan bab. pembicara: Bapak, Agus, atau kosong untuk narasi.",
+	"terbuka_awal": ["mi_goreng", "mi_rebus", "telur", "biskuit", "air_mineral", "sachet", "ciki", "permen"],
+	"tambahan_hari": 3,
+	"denda_persen": 10,
+	"_keterangan_sewa": "Kios warung disewa dari pemilik. per_minggu = sewa tetap per minggu untuk tiap Level Warung (level 1, 2, ...); setelah level terakhir dipakai angka terakhir. 19 Nov (user): sewa flat, tidak lagi ikut omzet atau upah kerja sampingan. alasan_naik = pesan Pak Haji Rasyid saat sewa naik, kuncinya indeks level (2 = Level 3); %s = sewa baru.",
+	"sewa": {
+		"pemilik": "Pak Haji Rasyid",
+		"per_minggu": [100000, 100000, 200000, 200000, 300000, 300000, 400000, 400000, 500000, 500000],
+		"alasan_naik": {
+			"2": "Assalamualaikum, Pak Misran. Jalan kampung sudah diaspal, jadi pajak tanah kios saya ikut naik. Mohon pengertiannya, mulai Minggu depan sewa kios jadi %s per minggu ya, Pak.",
+			"4": "Assalamualaikum, Pak Misran. Biaya atap kios kemarin masih saya cicil ke tukangnya. Mohon pengertiannya, mulai Minggu depan sewa kios jadi %s per minggu ya, Pak.",
+			"6": "Assalamualaikum, Pak Misran. Daya listrik kios sudah saya tambah supaya kulkas dan etalase Bapak tidak sering mati. Mulai Minggu depan sewa kios jadi %s per minggu ya, Pak.",
+			"8": "Assalamualaikum, Pak Misran. Saya sekarang sering bolak-balik berobat, biayanya tidak sedikit. Mohon maaf, mulai Minggu depan sewa kios jadi %s per minggu ya, Pak."
+		},
+		"denda_persen": 10
+	},
+	"bab": [
+		{
+			"judul": "Uang Pendaftaran",
+			"kebutuhan": "uang pendaftaran kuliah",
+			"level": 1,
+			"target": 150000,
+			"durasi": 12,
+			"buka": ["teh_botol"],
+			"cerita_naik": "Warung mulai dikenal tetangga. Supplier langganan mau menitipkan barang baru.",
+			"dialog_awal": [
+				["", "Di sebuah kampung kecil di Cianjur, Pak Misran membuka warung di kios sewaan milik Pak Haji Rasyid."],
+				["", "Sejak bercerai, Agus, anak satu-satunya, ikut ibunya tinggal di kota. Ibunya Agus adalah seorang ibu rumah tangga, jadi biaya sekolah Agus ditanggung Pak Misran."],
+				["", "Hari itu HP Pak Misran berbunyi. Pesan dari Agus."],
+				["Agus", "Pak! Aku keterima kuliah di kota, masuk semester ini!"],
+				["Bapak", "Alhamdulillah, Gus! Bapak ikut senang."],
+				["Agus", "Tapi uang pendaftarannya harus dibayar sebelum daftar ulang, Pak. Butuh {target}. Ibu nggak punya uang segitu."],
+				["Bapak", "Tenang, Gus. Bapak kumpulkan dulu dari warung, nanti Bapak kirim."],
+				["Agus", "Paling lambat tanggal {batas} ya, Pak. Makasih, Pak."],
+				["", "Modal Pak Misran Rp630.000: Rp500.000 untuk etalase kaca, sisanya Rp130.000 untuk stok. Pangkalan sudah menitipkan 2 tabung gas dan 3 galon di rak, tapi izin penyalur gas dan agen air galon belum keluar, jadi belum boleh dijual. Rak lainnya masih kosong. Klik HP, lalu buka Belanja Online untuk membeli mie goreng, mie rebus, telur, biskuit, air mineral, kopi sachet, ciki, dan permen (minimal 2 masing-masing) sebelum membuka warung."],
+				["", "Sewa kios dibayar setiap Minggu malam. Kumpulkan uang dari berjualan, lalu kirim untuk Agus lewat HP, aplikasi Wasap. Kiriman untuk Agus adalah misi utama, jadi dahulukan. Misi utama juga salah satu tugas Level Warung: selesaikan semua tugasnya untuk naik level."]
+			],
+			"dialog_selesai": [
+				["Agus", "Pak, uangnya sudah masuk! Aku sudah daftar ulang."],
+				["Bapak", "Syukurlah. Belajar yang rajin ya, Gus. Salam buat ibumu."]
+			]
+		},
+		{
+			"judul": "Buku dan Ospek",
+			"kebutuhan": "buku dan perlengkapan ospek",
+			"level": 2,
+			"target": 350000,
+			"durasi": 16,
+			"buka": ["kopi_susu"],
+			"cerita_naik": "Sales minuman dari kota melihat warungmu makin ramai dan mulai menitipkan barang.",
+			"dialog_awal": [
+				["Agus", "Pak, minggu depan sudah mulai ospek."],
+				["Agus", "Aku perlu beli buku dan perlengkapan. Kira-kira {target}, Pak."],
+				["Bapak", "Iya, Gus. Bapak usahakan sebelum tanggal {batas}."]
+			],
+			"dialog_selesai": [
+				["Agus", "Bukunya sudah kebeli, Pak. Teman-teman di kampus baik semua."],
+				["Bapak", "Alhamdulillah. Jangan lupa bantu ibumu di rumah."]
+			]
+		},
+		{
+			"judul": "Atap Kios Bocor",
+			"kebutuhan": "biaya perbaikan atap kios",
+			"level": 3,
+			"target": 500000,
+			"durasi": 14,
+			"kontak": "juragan",
+			"nama_penerima": "Pak Haji Rasyid",
+			"balasan_lunas": "Alhamdulillah, Pak Misran. Dana perbaikan atap sudah saya terima. Tukangnya mulai besok.",
+			"buka": [],
+			"cerita_naik": "Atap kios sudah diperbaiki. Pelanggan makin betah berlama-lama di warung.",
+			"dialog_awal": [
+				["", "Pagi itu Pak Misran menemukan bekas air menetes dari atap, tepat di atas rak dagangan."],
+				["Kontak", "Assalamualaikum, Pak Misran. Maaf, saya dengar atap kios bocor ya?"],
+				["Bapak", "Waalaikumsalam, Pak Haji. Iya, Pak, di atas rak. Untung barangnya sempat Bapak pindahkan."],
+				["Kontak", "Atapnya memang sudah tua. Biaya perbaikannya kita bagi dua: separuhnya saya yang tanggung, Bapak cukup {target}."],
+				["Bapak", "Baik, Pak Haji. Bapak usahakan sebelum tanggal {batas}."]
+			],
+			"dialog_selesai": [
+				["Kontak", "Atapnya sudah selesai dibetulkan, Pak Misran. Mudah-mudahan tidak bocor lagi."],
+				["Bapak", "Alhamdulillah. Terima kasih, Pak Haji."],
+				["Kontak", "Sama-sama, Pak. Semoga dagangannya makin laris."]
+			]
+		},
+		{
+			"judul": "Agus Jatuh Sakit",
+			"kebutuhan": "biaya berobat Agus",
+			"level": 4,
+			"target": 650000,
+			"durasi": 16,
+			"buka": ["danda", "data_2gb", "data_5gb", "data_10gb"],
+			"cerita_naik": "Berkat ajaran Agus, warungmu sekarang melayani top-up e-wallet dan paket data (isi saldonya lewat Belanja Online).",
+			"dialog_awal": [
+				["", "HP Pak Misran berbunyi lagi. Suara Agus terdengar lemah."],
+				["Agus", "Pak... aku dirawat di klinik. Kata dokter kena tifus. Ibu yang jagain aku."],
+				["Bapak", "Ya Allah, Gus! Kamu istirahat saja. Biayanya biar Bapak yang pikir."],
+				["Agus", "Butuh {target}, Pak. Maaf ya, ngerepotin Bapak terus."],
+				["Bapak", "Jangan bilang begitu. Kamu cepat sembuh, itu yang paling penting."]
+			],
+			"dialog_selesai": [
+				["Agus", "Pak, aku sudah boleh pulang dari klinik. Kata Ibu, makasih banyak ya, Pak."],
+				["Bapak", "Alhamdulillah... Jaga makan, jangan begadang terus."],
+				["Agus", "Pak, selama di klinik aku iseng belajar jualan saldo. Warung Bapak bisa jual top-up e-wallet sama paket data, lho. Untungnya kecil, tapi yang beli tiap hari ada."],
+				["Bapak", "Wah, boleh juga, Gus. Nanti ajari Bapak lewat telepon ya."],
+				["", "Top-up e-wallet dan paket data terbuka saat warung naik level."]
+			]
+		},
+		{
+			"judul": "Laptop untuk Kuliah",
+			"kebutuhan": "laptop bekas untuk kuliah",
+			"level": 5,
+			"target": 1000000,
+			"durasi": 26,
+			"buka": ["minyak_goreng"],
+			"cerita_naik": "Agen sembako melihat warungmu ramai dan mulai memasok barang baru.",
+			"dialog_awal": [
+				["Agus", "Pak, tugas kuliah banyak yang harus diketik. Ke warnet terus jadi mahal."],
+				["Agus", "Ada teman yang jual laptop bekas, masih bagus. Harganya Rp1.600.000. Aku sudah nabung Rp600.000 dari kerja paruh waktu di kafe, Pak."],
+				["Agus", "Kurangnya {target}. Bapak bisa bantu?"],
+				["Bapak", "Hebat kamu sudah mau nabung sendiri, Gus. Bapak kirim sebelum tanggal {batas}. Rawat baik-baik laptopnya."]
+			],
+			"dialog_selesai": [
+				["Agus", "Laptopnya sudah sampai, Pak! Masih bagus banget."],
+				["Bapak", "Pakai buat belajar ya, bukan buat main terus."]
+			]
+		},
+		{
+			"judul": "Saung Warga",
+			"kebutuhan": "patungan perbaikan saung warga",
+			"level": 6,
+			"target": 1200000,
+			"durasi": 20,
+			"kontak": "rt",
+			"nama_penerima": "Pak RT",
+			"balasan_lunas": "Alhamdulillah, sumbangan dari Pak Misran sudah masuk. Warga titip terima kasih.",
+			"buka": [],
+			"cerita_naik": "Warga makin menghargai Pak Misran. Namanya disebut-sebut di pengajian.",
+			"dialog_awal": [
+				["Kontak", "Assalamualaikum, Pak Misran. Saung di tepi sawah atapnya sudah rusak, padahal sering dipakai warga berteduh dan anak-anak mengaji."],
+				["Kontak", "Warga mau patungan. Karena warung Bapak sekarang paling ramai, kami berharap Bapak berkenan menyumbang {target}."],
+				["Bapak", "Insyaallah, Pak RT. Itu juga buat kita semua. Bapak usahakan sebelum tanggal {batas}."]
+			],
+			"dialog_selesai": [
+				["Kontak", "Alhamdulillah, Pak. Saungnya sebentar lagi dibetulkan. Warga titip terima kasih."],
+				["Bapak", "Sama-sama, Pak RT. Semoga bermanfaat buat semua warga."]
+			]
+		},
+		{
+			"judul": "Uang Semester",
+			"kebutuhan": "uang semester",
+			"level": 7,
+			"target": 1500000,
+			"durasi": 24,
+			"buka": [],
+			"dialog_awal": [
+				["Agus", "Pak, ini yang terakhir buat semester ini. Uang semesternya Rp2.000.000, tapi aku dapat keringanan dari kampus. Jadi tinggal {target}."],
+				["Agus", "Batasnya tanggal {batas}, Pak."],
+				["Bapak", "Bapak sudah siapkan dari jauh hari, Gus. Tinggal sedikit lagi."]
+			],
+			"dialog_selesai": [
+				["Agus", "Pak, uang semester sudah lunas!"],
+				["Bapak", "Alhamdulillah, ya Allah..."],
+				["Agus", "Bapak jaga kesehatan ya. Warungnya ramai terus, tapi jangan lupa istirahat."],
+				["Bapak", "Iya, Gus. Kamu juga jangan begadang."]
+			]
+		},
+		{
+			"judul": "Gaji Pertama Agus",
+			"kebutuhan": "kiriman gaji pertama dari Agus",
+			"level": 8,
+			"target": 2000000,
+			"durasi": 3,
+			"jenis": "hadiah",
+			"buka": [],
+			"cerita_naik": "Kabar gaji pertama Agus membuat Pak Misran makin semangat mengurus warung.",
+			"dialog_awal": [
+				["Agus", "Pak! Aku diangkat jadi pegawai tetap di kafe, gaji pertamaku sudah cair. Alhamdulillah."],
+				["Agus", "Aku kirim {target} buat Bapak ya. Jangan ditolak, Pak."],
+				["Bapak", "Gus, itu hasil kerjamu sendiri. Simpan saja buat kamu."],
+				["Agus", "Sudah kupisahkan buat diriku, Pak. Selama ini Bapak yang kirim buat aku. Sekarang gantian, sedikit saja."],
+				["Bapak", "Ya Allah... terima kasih, Nak."],
+				["", "Uang {target} dari Agus masuk ke laci Pak Misran."]
+			],
+			"dialog_selesai": [
+				["Bapak", "Uang ini Bapak simpan baik-baik, Gus. Bapak bangga sama kamu."],
+				["Agus", "Bapak jaga kesehatan juga ya. Akhir-akhir ini aku suka khawatir Bapak kecapekan."]
+			]
+		},
+		{
+			"judul": "Cek Kesehatan Bapak",
+			"kebutuhan": "biaya cek kesehatan lengkap",
+			"level": 9,
+			"target": 1500000,
+			"durasi": 21,
+			"kontak": "klinik",
+			"nama_penerima": "Klinik Sehat Kampung",
+			"balasan_lunas": "Pembayaran cek kesehatan Pak Misran sudah kami terima. Silakan datang kapan saja untuk diperiksa.",
+			"buka": [],
+			"cerita_naik": "Pak Misran lebih sehat dan segar. Warung pun makin lancar diurus.",
+			"dialog_awal": [
+				["", "Beberapa hari ini Pak Misran sering pegal dan cepat lelah setelah seharian menjaga warung."],
+				["Agus", "Pak, kata Pak RT Bapak sering kelihatan pucat. Bapak sudah periksa ke klinik?"],
+				["Bapak", "Cuma capek biasa, Gus. Nanti juga sembuh sendiri."],
+				["Agus", "Aku nggak mau Bapak sakit sendirian, Pak. Aku sudah daftarkan Bapak cek kesehatan lengkap di Klinik Sehat."],
+				["Agus", "Biayanya {target}. Tolong dibayar ya, Pak. Ini permintaan Agus."],
+				["Bapak", "Iya, Gus. Bapak ikuti kata anak sendiri. Bapak bayar sebelum tanggal {batas}."]
+			],
+			"dialog_selesai": [
+				["Kontak", "Pembayaran sudah kami terima, Pak Misran. Dokter berpesan: tidur cukup dan jangan memaksakan diri."],
+				["", "Hasil pemeriksaan baik. Pak Misran hanya perlu lebih sering istirahat."],
+				["Agus", "Alhamdulillah, Pak. Bapak harus jaga diri, ya. Warung bisa ditinggal sebentar."],
+				["Bapak", "Iya, Gus. Terima kasih sudah ingat Bapak."]
+			]
+		},
+		{
+			"judul": "Kios Milik Sendiri",
+			"kebutuhan": "pembelian kios dari Pak Haji Rasyid",
+			"level": 10,
+			"target": 30000000,
+			"durasi": 45,
+			"kios": true,
+			"kontak": "juragan",
+			"nama_penerima": "Pak Haji Rasyid",
+			"balasan_lunas": "Alhamdulillah, Pak Misran. Pembayaran sudah saya terima. Surat-suratnya saya urus hari ini juga.",
+			"buka": [],
+			"dialog_awal": [
+				["", "Hari itu Pak Haji Rasyid menelepon membawa kabar yang tidak biasa."],
+				["Kontak", "Pak Misran, saya sudah tua dan ingin membagi harta untuk anak cucu. Kios ini mau saya jual, tapi saya ingin Bapak yang memilikinya."],
+				["Kontak", "Harganya {target}, dibayar sekaligus. Untuk Bapak, saya sudah beri potongan."],
+				["Bapak", "Pak Haji... Bapak sangat ingin kios ini jadi milik sendiri. Bapak akan kumpulkan uangnya."],
+				["Kontak", "Saya tunggu sampai tanggal {batas}, Pak. Warung ini sudah seperti anak saya sendiri."],
+				["Agus", "Pak! Aku dengar dari Pak Haji. Semangat ya, Pak. Aku bantu doa dari kota."]
+			],
+			"dialog_selesai": [
+				["Kontak", "Alhamdulillah. Surat jual-beli sudah selesai, Pak Misran. Mulai hari ini kios ini milik Bapak, tidak ada sewa lagi."],
+				["Bapak", "Ya Allah... terima kasih, Pak Haji. Bapak tidak akan melupakan kebaikan Pak Haji."],
+				["Agus", "Pak, begitu urusan warung beres, aku pulang ya. Aku mau lihat warung yang sekarang milik Bapak sendiri."]
+			]
+		}
+	],
+	"dialog_terlambat": [
+		["Agus", "Pak... batasnya sudah lewat. Aku sudah minta keringanan, tapi kena denda."],
+		["Bapak", "Maafkan Bapak, Gus. Kasih Bapak waktu sedikit lagi."],
+		["", "Batas diperpanjang sampai tanggal {batas}. Target {kebutuhan} sekarang {target}."]
+	],
+	"_keterangan_terlambat_kontak": "Dipakai kalau penerima bab bukan Agus (Pak Haji, Pak RT, klinik). Pembicara Kontak = penerima bab itu.",
+	"dialog_terlambat_kontak": [
+		["Kontak", "Pak Misran, batasnya sudah lewat. Saya beri waktu tambahan, ya."],
+		["Bapak", "Mohon maaf, saya usahakan secepatnya."],
+		["", "Batas diperpanjang sampai tanggal {batas}. Total {kebutuhan} sekarang {target}."]
+	],
+	"dialog_tamat": [
+		["", "Hari itu, sebuah bus berhenti di depan warung. Seorang pemuda bersweter merah turun membawa tas ransel, dan di belakangnya ibunya ikut turun membawa rantang."],
+		["AgusDatang", "Assalamualaikum, Pak!"],
+		["Bapak", "Waalaikumsalam, Gus! Ya Allah... Sini, sini, Nak."],
+		["AgusDatang", "Pak, kafe kasih aku jadwal tetap, dan kampus kasih aku beasiswa buat semester depan!"],
+		["Bapak", "Masya Allah. Bapak bangga sekali sama kamu, Gus. Semua capek ini rasanya hilang."],
+		["", "Warga kampung berdatangan menyalami Agus. Ibu Agus tersenyum, lalu meletakkan rantang di meja warung."],
+		["Bapak", "Terima kasih sudah menemani Agus sampai sejauh ini, Bu."],
+		["", "Ibu Agus tersenyum dan mengangguk. Tidak ada kata lagi yang perlu diucapkan."],
+		["AgusDatang", "Pak, ini kios Bapak sendiri sekarang. Selama libur aku bantu jaga warung ya."],
+		["Bapak", "Ayo, Gus. Ambil celemek itu. Pelanggan sudah antre."],
+		["", "Cerita utama selesai. Semua barang sudah terbuka. Level 11 segera hadir. Warung tetap buka, silakan lanjut berdagang sesukamu."]
+	],
+	"balasan_kirim": [
+		"Makasih, Pak. Sudah masuk.",
+		"Sudah diterima, Pak. Bapak jaga kesehatan ya.",
+		"Alhamdulillah, makasih Pak.",
+		"Masuk, Pak. Bapak jangan lupa makan."
+	]
+}
