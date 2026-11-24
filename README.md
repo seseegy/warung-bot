@@ -225,8 +225,36 @@ python3 -m venv .venv
 kosong = tombol Buka Dashboard tidak muncul), `API_HOST`/`API_PORT`
 (default `127.0.0.1:8000`), `MINIAPP_DIST` (default `miniapp/dist`).
 
-Systemd (VPS): sesuaikan path di `systemd/warung-bot.service`, lalu
-`systemctl enable --now warung-bot`. Pastikan `.env` mode `600`.
+### Proxy egress (host tanpa internet langsung)
+
+Bot membaca proxy eksplisit dari `HTTPS_PROXY`/`HTTP_PROXY` di `.env`
+atau environment (`bot/main.py::_proxy_dari_env`, diteruskan ke
+`HTTPXRequest(proxy=...)` dan `SupabaseClient(proxy=...)`).
+`trust_env=False` tetap dipakai supaya `no_proxy` host yang rusak
+(`"[::1]"`, tidak bisa di-parse httpx) tidak pernah dibaca. Kosong =
+koneksi langsung (VPS biasa). Nilai proxy tidak pernah di-log.
+
+### Systemd + watchdog + progres anti-reset
+
+```bash
+bash scripts/install-services.sh   # pasang/refresh unit + proxy .env
+```
+
+Unit (`systemd/warung-bot.service`, `warung-bot-api.service`):
+`Restart=always` + `RestartSec=10` (watchdog: nyala lagi walau exit
+0/1), `StartLimitIntervalSec=600`/`StartLimitBurst=60` supaya gangguan
+jaringan sesaat di boot tidak membuat unit `failed`. Cek:
+`systemctl is-active warung-bot warung-bot-api`,
+`journalctl -u warung-bot -f`.
+
+Progres TIDAK hilang saat restart/redeploy: semua state ada di
+`data/bot.db` (SQLite: akun tertaut, tier, jadwal, audit, backup) dan
+`.env` — keduanya di folder proyek (`~/workspace/warung-bot`) yang
+selamat dari redeploy VM. Yang TIDAK selamat: unit di
+`/etc/systemd/system` — setelah redeploy jalankan lagi
+`bash scripts/install-services.sh` (script ini juga menulis ulang
+baris proxy di `.env` karena kredensial proxy egress berotasi tiap VM
+diganti; `BOT_TOKEN`/`FERNET_KEY` tidak disentuh).
 
 ### Mini App (Fase 4)
 
@@ -255,8 +283,8 @@ bot bila `MINIAPP_URL` diisi.
 .venv/bin/python -m pytest -q
 ```
 
-285 tes (saat penyerahan Fase 4) + 113 tes Fase 5 = **398 tes**
-(saat penyerahan Fase 5): Fase 1 (70) + Fase 2 (73) +
+285 tes (saat penyerahan Fase 4) + 113 tes Fase 5 + 7 tes proxy
+(live-run 24 Nov 2026) = **405 tes** (saat penyerahan Fase 5): Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),

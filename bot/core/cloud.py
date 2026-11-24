@@ -85,19 +85,22 @@ class SupabaseClient:
         base_url: str = SUPABASE_URL,
         api_key: str = SUPABASE_KEY,
         transport: httpx.BaseTransport | None = None,
+        proxy: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        # trust_env=False: bot server terhubung langsung ke Supabase.
-        # Proxy env host (mis. no_proxy berisi IPv6 "[::1]") TIDAK boleh
-        # memengaruhi klien — httpx bisa gagal total saat konstruksi
-        # karena tidak bisa mem-parse entri no_proxy seperti itu
-        # (teramati di VM ini). Bila VPS butuh proxy, atur eksplisit.
+        # trust_env=False: proxy env host TIDAK dibaca (no_proxy berisi
+        # IPv6 "[::1]" yang tidak bisa di-parse httpx — teramati di VM).
+        # Bila host butuh proxy (mis. sandbox ini: egress via proxy),
+        # sampaikan eksplisit lewat `proxy` — httpx memakai proxy itu
+        # untuk semua request dan tetap mengabaikan env. None = langsung.
+        # Proxy TIDAK pernah di-log.
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             transport=transport,
             timeout=TIMEOUT_RPC,
             trust_env=False,
+            proxy=proxy,
         )
 
     async def close(self) -> None:

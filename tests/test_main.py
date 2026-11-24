@@ -53,6 +53,10 @@ def test_status_keyboard_dengan_url_ada_web_app(monkeypatch):
 
 
 def test_load_context_gagal_tanpa_bot_token(monkeypatch):
+    # .env asli di repo (saat live-run) ikut dimuat load_context via
+    # setdefault — matikan pemuat .env supaya tes ini menguji ketiadaan
+    # token, bukan isi .env.
+    monkeypatch.setattr("bot.main._load_dotenv", lambda path: None)
     monkeypatch.delenv("BOT_TOKEN", raising=False)
     monkeypatch.setenv("FERNET_KEY", Fernet.generate_key().decode())
     with pytest.raises(SystemExit):
@@ -62,6 +66,7 @@ TOKEN_PALSU_VALID = "123456789:" + "A" * 35
 
 
 def test_build_gagal_tanpa_bot_token(monkeypatch):
+    monkeypatch.setattr("bot.main._load_dotenv", lambda path: None)
     monkeypatch.delenv("BOT_TOKEN", raising=False)
     monkeypatch.setenv("FERNET_KEY", Fernet.generate_key().decode())
     with pytest.raises(SystemExit):
@@ -69,6 +74,7 @@ def test_build_gagal_tanpa_bot_token(monkeypatch):
 
 
 def test_build_gagal_tanpa_fernet_key(monkeypatch):
+    monkeypatch.setattr("bot.main._load_dotenv", lambda path: None)
     monkeypatch.setenv("BOT_TOKEN", TOKEN_PALSU_VALID)
     monkeypatch.delenv("FERNET_KEY", raising=False)
     with pytest.raises(SystemExit):

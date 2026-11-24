@@ -74,6 +74,30 @@ def _parse_allowed(raw: str) -> set[int]:
     return hasil
 
 
+def _proxy_dari_env() -> str | None:
+    """URL proxy egress eksplisit, bila ada.
+
+    Dibaca dari HTTPS_PROXY/https_proxy/HTTP_PROXY/http_proxy/ALL_PROXY/
+    all_proxy (.env atau environment). Dipakai eksplisit (bukan via
+    trust_env) supaya httpx tidak mem-parse no_proxy host yang rusak
+    ("[::1]") dan supaya systemd service — yang tidak mewarisi proxy
+    shell — tetap bisa egress. None = koneksi langsung (VPS biasa).
+    Nilai proxy TIDAK pernah di-log.
+    """
+    for kunci in (
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ):
+        nilai = os.environ.get(kunci, "").strip()
+        if nilai:
+            return nilai
+    return None
+
+
 def load_context() -> dict:
     """Muat konteks bersama bot polling + API Mini App (Fase 4).
 
@@ -108,6 +132,7 @@ def load_context() -> dict:
     cloud = SupabaseClient(
         base_url=os.environ.get("SUPABASE_URL", SUPABASE_URL),
         api_key=os.environ.get("SUPABASE_KEY", SUPABASE_KEY),
+        proxy=_proxy_dari_env(),
     )
     allowed = _parse_allowed(os.environ.get("ALLOWED_CHAT_IDS", ""))
     if not allowed:
@@ -132,13 +157,19 @@ def build_application() -> Application:
     allowed = ctx["allowed"]
     bot_token = ctx["bot_token"]
 
-    # trust_env=False (lihat juga SupabaseClient): bot terhubung langsung
-    # ke api.telegram.org. Proxy env host tidak dipakai — httpx gagal total
-    # saat konstruksi bila no_proxy berisi entri IPv6 "[::1]" (teramati di VM).
-    # PTB membangun DUA request (bot + get_updates), keduanya harus diatur.
+    # trust_env=False (lihat juga SupabaseClient): proxy env host tidak
+    # dibaca — httpx gagal total saat konstruksi bila no_proxy berisi
+    # entri IPv6 "[::1]" (teramati di VM). Proxy disampaikan eksplisit
+    # lewat proxy_url dari _proxy_dari_env() bila ada (mis. sandbox ini);
+    # None = langsung (VPS biasa). PTB membangun DUA request (bot +
+    # get_updates), keduanya harus diatur.
+    proxy = _proxy_dari_env()
+
     def _request() -> HTTPXRequest:
         return HTTPXRequest(
-            connection_pool_size=8, httpx_kwargs={"trust_env": False}
+            connection_pool_size=8,
+            proxy=proxy,
+            httpx_kwargs={"trust_env": False},
         )
 
     app = (

@@ -2,6 +2,9 @@
 Description=API Mini App bot Telegram Warung Life Simulator (Fase 4)
 After=network-online.target warung-bot.service
 Wants=network-online.target
+# Watchdog: sama seperti warung-bot.service.
+StartLimitIntervalSec=600
+StartLimitBurst=60
 # Dua proses terpisah (bukan satu proses): bot polling dan API masing-masing
 # membuka koneksi sqlite sendiri. Berbagi satu Store antar-thread akan
 # melempar sqlite3.ProgrammingError (check_same_thread).
@@ -11,7 +14,7 @@ Type=simple
 WorkingDirectory=/home/hatch/workspace/warung-bot
 EnvironmentFile=/home/hatch/workspace/warung-bot/.env
 ExecStart=/home/hatch/workspace/warung-bot/.venv/bin/python -m bot.api
-Restart=on-failure
+Restart=always
 RestartSec=10
 # Jangan pernah mencetak token ke journal: API tidak me-log token.
 # Pastikan .env hanya bisa dibaca pemilik: chmod 600 .env
