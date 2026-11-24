@@ -465,7 +465,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await sim_tg.on_callback_sim(update, context, query, data)
         return
 
-    if data.startswith(("tier:", "otomatis:", "login:", "laporan:")):
+    if data.startswith(("tier:", "otomatis:", "target:", "login:",
+                        "laporan:")):
         await tiers_tg.on_callback_tier(update, context, query, data)
         return
 

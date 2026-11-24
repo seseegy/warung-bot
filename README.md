@@ -301,7 +301,8 @@ bot bila `MINIAPP_URL` diisi.
 
 285 tes (saat penyerahan Fase 4) + 113 tes Fase 5 + 7 tes proxy
 (live-run 24 Nov 2026) + 4 tes perbaikan jam (24 Nov 2026) + 23 tes Mode
-Target Level (24 Nov 2026) = **432 tes**: Fase 1 (70) + Fase 2 (73) +
+Target Level + 1 tes regresi routing tombol target (24 Nov 2026)
+= **433 tes**: Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),

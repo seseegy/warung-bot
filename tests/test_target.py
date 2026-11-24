@@ -362,3 +362,27 @@ async def test_otomatis_nyala_mematikan_mode_target(game_data, store):
         None, _fake_context(game_data, store), query, "otomatis:nyala")
     assert store.get_mode_target(123) is None
     assert store.get_otomatis(123) is True
+
+
+async def test_on_callback_mengarahkan_target_ke_tiers(monkeypatch):
+    """Regresi: tombol Mode Target sempat tidak dikenal karena handlers.py
+    tidak meneruskan prefix "target:" ke on_callback_tier (24 Nov 2026)."""
+    from bot.tg import handlers as handlers_tg
+
+    dipanggil = {}
+
+    async def _palsu(update, context, query, data):
+        dipanggil["data"] = data
+        return True
+
+    monkeypatch.setattr("bot.tg.handlers.tiers_tg.on_callback_tier", _palsu)
+    query = SimpleNamespace(
+        data="target:pilih",
+        message=SimpleNamespace(chat_id=123),
+        answer=AsyncMock(), edit_message_text=AsyncMock())
+    update = SimpleNamespace(callback_query=query)
+    context = SimpleNamespace(bot_data={}, user_data={})
+    await handlers_tg.on_callback(update, context)
+    assert dipanggil.get("data") == "target:pilih"
+    # Tidak jatuh ke "Tombol tidak dikenal."
+    query.edit_message_text.assert_not_awaited()
