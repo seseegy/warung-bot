@@ -71,9 +71,15 @@ def format_disimpan(disimpan: str) -> str:
 
 
 def format_status_card(
-    ringkasan: dict, slot: dict, tugas_data: dict, versi_cloud: int
+    ringkasan: dict, slot: dict, tugas_data: dict, versi_cloud: int,
+    disinkronkan: str | None = None,
 ) -> str:
-    """Kartu status (RANCANGAN §15.4)."""
+    """Kartu status (RANCANGAN §15.4).
+
+    ``disinkronkan`` (opsional, "YYYY-MM-DD HH:MM:SS" WIB) = jam bot
+    mengambil save ini dari cloud. Ditampilkan bersama "disimpan"
+    (jam game menyimpan slot di HP) supaya keduanya tidak tertukar.
+    """
     tingkat = int(slot.get("tingkat", 0))
     try:
         target = save_mod.task_targets(tugas_data, tingkat)
@@ -121,10 +127,15 @@ def format_status_card(
             baris.append(f"Khusus    {progress_bar(p, t)} {p}/{t} — {label}")
     else:
         baris.append("Tugas: sudah level terakhir, tidak ada tugas lagi.")
+    baris_disimpan = (
+        f"Simpanan online v{versi_cloud}"
+        f" · disimpan {format_disimpan(ringkasan['disimpan'])}"
+    )
+    if disinkronkan:
+        baris_disimpan += f" · disinkronkan {format_disimpan(disinkronkan)} WIB"
     baris += [
         "",
-        f"Simpanan online v{versi_cloud}"
-        f" · disimpan {format_disimpan(ringkasan['disimpan'])}",
+        baris_disimpan,
     ]
     return "\n".join(baris)
 
@@ -284,6 +295,10 @@ async def fetch_latest_state(context, chat_id: int,
         "slot": slot,
         "ringkasan": ringkasan,
         "session": session,
+        # Jam bot mengambil save ini (WIB) — ditampilkan di kartu status
+        # supaya tidak tertukar dengan "disimpan" (jam game menyimpan
+        # slot ini di HP, yang bisa jauh lebih lama).
+        "disinkronkan": save_mod.sekarang_wib_str(),
     }
 
 

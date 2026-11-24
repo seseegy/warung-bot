@@ -277,7 +277,8 @@ async def _kirim_status(message, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(f"Tidak bisa mengambil status: {exc}")
         return
     teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"]
+        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
+        state.get("disinkronkan"),
     )
     await message.reply_text(teks, reply_markup=kb.status_keyboard())
 
@@ -366,7 +367,8 @@ async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(f"Sinkron gagal: {exc}")
         return
     teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"]
+        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
+        state.get("disinkronkan"),
     )
     await message.reply_text(
         "Sinkron selesai — ini simpanan terbaru dari cloud.\n\n" + teks,
@@ -506,7 +508,8 @@ async def _tampilkan_status_callback(query, context) -> None:
         await _edit(query, f"Tidak bisa mengambil status: {exc}")
         return
     teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"]
+        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
+        state.get("disinkronkan"),
     )
     await _edit(query, teks, kb.status_keyboard())
 
@@ -551,7 +554,8 @@ async def _tampilkan_sync_callback(query, context) -> None:
         await _edit(query, f"Sinkron gagal: {exc}")
         return
     teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"]
+        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
+        state.get("disinkronkan"),
     )
     await _edit(query, "Sinkron selesai — ini simpanan terbaru dari cloud.\n\n" + teks, kb.status_keyboard())
 

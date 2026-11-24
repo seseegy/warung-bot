@@ -37,6 +37,18 @@ import hashlib
 import json
 import zlib
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Waktu game selalu waktu lokal HP (WIB). Service systemd jalan dengan
+# zona sistem UTC (shell punya TZ=Asia/Jakarta, service tidak) — jadi
+# JANGAN pakai datetime.now() telanjang untuk stempel yang dibaca game
+# atau ditampilkan ke pengguna; pakai WIB eksplisit di sini.
+WIB = ZoneInfo("Asia/Jakarta")
+
+
+def sekarang_wib_str() -> str:
+    """Waktu sekarang (WIB) format game: "YYYY-MM-DD HH:MM:SS"."""
+    return datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
 
 # Batas dekompresi yang dipakai game: decompress_dynamic(20000000, GZIP).
 MAX_PACKAGE_BYTES = 20_000_000
@@ -310,17 +322,24 @@ def fill_task_progress(slot: dict, tugas_data: dict) -> dict:
 
 
 def build_package_with_slot(paket: dict, nomor_slot: int, slot: dict) -> dict:
-    """Salinan paket dengan SATU slot diganti hasil edit + "dibuat" diperbarui.
+    """Salinan paket dengan SATU slot diganti hasil edit + stempel diperbarui.
 
     Slot lain dan semua field lain (toko, lemari, promo, ...) dipertahankan
     APA ADANYA (byte-for-byte) agar sidik slot yang tidak disentuh tetap
     cocok dengan yang dihitung game setelah mengunduh.
+
+    Stempel yang diperbarui (WIB eksplisit, format game):
+    - header paket ``dibuat``;
+    - slot yang diedit ``disimpan`` — seperti game yang memperbarui
+      ``disimpan`` setiap kali ia menyimpan slot. Tanpa ini kartu status
+      tetap menampilkan jam simpanan lama dari game walau bot baru saja
+      mengunggah versi baru.
     """
     if nomor_slot < 1 or nomor_slot > JUMLAH_SLOT:
         raise ValueError(f"nomor slot harus 1..{JUMLAH_SLOT}")
     baru = copy.deepcopy(paket)
+    sekarang = sekarang_wib_str()
+    slot["disimpan"] = sekarang
     baru["slot"][str(nomor_slot)] = serialize_slot(slot)
-    # Format game: Time.get_datetime_string_from_system(false, true) = waktu
-    # lokal "YYYY-MM-DD HH:MM:SS".
-    baru["dibuat"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    baru["dibuat"] = sekarang
     return baru

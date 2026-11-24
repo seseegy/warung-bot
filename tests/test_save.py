@@ -21,6 +21,7 @@ from bot.core.save import (
     encode_package,
     fill_task_progress,
     parse_slot,
+    sekarang_wib_str,
     serialize_slot,
     set_uang,
     slot_summary,
@@ -277,3 +278,37 @@ def test_build_package_nomor_slot_tidak_valid(sample_package, sample_slot):
         build_package_with_slot(sample_package, 0, sample_slot)
     with pytest.raises(ValueError):
         build_package_with_slot(sample_package, 7, sample_slot)
+
+
+def test_sekarang_wib_str_format():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    teks = sekarang_wib_str()
+    dt = datetime.strptime(teks, "%Y-%m-%d %H:%M:%S").replace(
+        tzinfo=ZoneInfo("Asia/Jakarta"))
+    assert abs(
+        (datetime.now(ZoneInfo("Asia/Jakarta")) - dt).total_seconds()) < 10
+
+
+def test_build_package_stempel_wib(sample_package, sample_slot):
+    """Stempel edit bot = WIB sekarang, bukan UTC sistem.
+
+    Service systemd jalan dengan zona UTC (shell punya TZ=Asia/Jakarta,
+    service tidak) — datetime.now() telanjang akan 7 jam ketinggalan.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    slot_baru = dict(sample_slot)
+    dibuat_lama = sample_package["dibuat"]
+    paket_baru = build_package_with_slot(sample_package, 1, slot_baru)
+    sekarang = datetime.now(ZoneInfo("Asia/Jakarta"))
+    dibuat = datetime.strptime(
+        paket_baru["dibuat"], "%Y-%m-%d %H:%M:%S").replace(
+            tzinfo=ZoneInfo("Asia/Jakarta"))
+    assert abs((sekarang - dibuat).total_seconds()) < 10
+    # Slot yang diedit ikut diperbarui stempelnya (seperti game saat save);
+    # paket asli tidak berubah.
+    assert parse_slot(paket_baru["slot"]["1"])["disimpan"] == paket_baru["dibuat"]
+    assert sample_package["dibuat"] == dibuat_lama

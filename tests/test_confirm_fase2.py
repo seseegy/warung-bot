@@ -71,6 +71,23 @@ def ctx_mock(store, tugas_data, sample_p_data):
     return ctx, diunggah, cloud
 
 
+async def test_fetch_latest_state_sertakan_jam_sinkron(ctx_mock):
+    """State hasil fetch membawa jam sinkron (WIB) — dipakai kartu status
+    supaya tidak tertukar dengan jam game menyimpan slot di HP."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from bot.tg.status import fetch_latest_state
+
+    ctx, _, _ = ctx_mock
+    state = await fetch_latest_state(ctx, 123)
+    dt = datetime.strptime(
+        state["disinkronkan"], "%Y-%m-%d %H:%M:%S").replace(
+            tzinfo=ZoneInfo("Asia/Jakarta"))
+    assert abs(
+        (datetime.now(ZoneInfo("Asia/Jakarta")) - dt).total_seconds()) < 10
+
+
 async def test_terapkan_simulasi_ok(ctx_mock, sample_slot, game_data, tugas_data):
     ctx, diunggah, cloud = ctx_mock
     # State seperti yang dilihat pengguna saat simulasi dibuat.
