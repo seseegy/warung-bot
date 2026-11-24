@@ -70,15 +70,77 @@ def format_disimpan(disimpan: str) -> str:
         return disimpan or "-"
 
 
+def _baris_tugas(progres: dict, target: dict) -> list[str]:
+    """Baris tugas (monospace) untuk kartu status dan kartu tugas.
+
+    Mengembalikan satu blok teks preformatted agar progress bar sejajar
+    di font monospace Telegram. Omzet ditulis ringkas (100rb/100rb) supaya
+    muat satu baris di layar HP.
+    """
+    baris: list[str] = []
+    for kunci, label in (
+        ("pelanggan", "Pelanggan"),
+        ("barang", "Barang"),
+        ("omzet", "Omzet"),
+    ):
+        t = int(target.get(kunci, 0))
+        p = int(progres.get(kunci, 0))
+        nilai = (
+            f"{format_rupiah_compact(p)}/{format_rupiah_compact(t)}"
+            if kunci == "omzet"
+            else f"{p}/{t}"
+        )
+        baris.append(f"{label:<9} {progress_bar(p, t, lebar=8)} {nilai}")
+    khusus = target.get("khusus", {})
+    if isinstance(khusus, dict) and khusus.get("target"):
+        jenis = str(khusus.get("jenis", ""))
+        t = int(khusus.get("target", 0))
+        p = int(progres.get("khusus", 0))
+        label = KHUSUS_LABEL.get(jenis, "{n}").format(n=t)
+        if jenis == "laba_hari":
+            label = KHUSUS_LABEL[jenis].format(n=format_rupiah(t))
+        baris.append(f"Khusus    {progress_bar(p, t, lebar=8)} {p}/{t} — {label}")
+    return baris
+
+
+def _blocker_naik_level(slot: dict, target: dict) -> list[str]:
+    """Sebab-sebab progres penuh tapi level belum naik (jujur, seperti
+    ``fill_task_progress``/``format_task_card``).
+
+    Mengembalikan daftar pesan pendek untuk ditampilkan di kartu status.
+    """
+    blockers: list[str] = []
+    syarat_upgrade = target.get("upgrade", [])
+    if syarat_upgrade:
+        dimiliki = slot.get("upgrade", [])
+        if not isinstance(dimiliki, list):
+            dimiliki = []
+        if not any(u in dimiliki for u in syarat_upgrade):
+            blockers.append(
+                "beli upgrade " + "/".join(str(u) for u in syarat_upgrade))
+    misi_status = str(slot.get("misi_status", ""))
+    cerita_tamat = bool(slot.get("cerita_tamat", False))
+    if misi_status not in ("", "lunas") and not cerita_tamat:
+        blockers.append("selesaikan misi Agus")
+    return blockers
+
+
 def format_status_card(
     ringkasan: dict, slot: dict, tugas_data: dict, versi_cloud: int,
     disinkronkan: str | None = None,
+    otomatis: bool | None = None,
+    tier: int | None = None,
+    jam_otomatis: int | None = None,
 ) -> str:
     """Kartu status (RANCANGAN §15.4).
 
     ``disinkronkan`` (opsional, "YYYY-MM-DD HH:MM:SS" WIB) = jam bot
     mengambil save ini dari cloud. Ditampilkan bersama "disimpan"
     (jam game menyimpan slot di HP) supaya keduanya tidak tertukar.
+
+    ``otomatis``/``tier``/``jam_otomatis`` (opsional) = ringkasan status
+    otomatisasi di bawah kartu. ``otomatis=None`` (default) = tidak
+    ditampilkan (dipakai jalur yang belum punya akses store).
     """
     tingkat = int(slot.get("tingkat", 0))
     try:
@@ -103,28 +165,22 @@ def format_status_card(
     ]
     if target is not None:
         baris.append(f"Tugas Lv {ringkasan['level']} — {target.get('nama', '')}")
-        for kunci, label in (
-            ("pelanggan", "Pelanggan"),
-            ("barang", "Barang"),
-            ("omzet", "Omzet"),
-        ):
-            t = int(target.get(kunci, 0))
-            p = int(progres.get(kunci, 0))
-            nilai = (
-                f"{format_rupiah_compact(p)} / {format_rupiah_compact(t)}"
-                if kunci == "omzet"
-                else f"{p}/{t}"
-            )
-            baris.append(f"{label:<10}{progress_bar(p, t)} {nilai}")
+        baris.append("```")
+        baris.extend(_baris_tugas(progres, target))
+        baris.append("```")
+        # Bila semua progres sudah penuh, jelaskan kenapa belum naik level.
+        semua_penuh = all(
+            int(progres.get(k, 0)) >= int(target.get(k, 0))
+            for k in ("pelanggan", "barang", "omzet")
+            if int(target.get(k, 0)) > 0
+        )
         khusus = target.get("khusus", {})
         if isinstance(khusus, dict) and khusus.get("target"):
-            jenis = str(khusus.get("jenis", ""))
-            t = int(khusus.get("target", 0))
-            p = int(progres.get("khusus", 0))
-            label = KHUSUS_LABEL.get(jenis, "{n}").format(n=t)
-            if jenis == "laba_hari":
-                label = KHUSUS_LABEL[jenis].format(n=format_rupiah(t))
-            baris.append(f"Khusus    {progress_bar(p, t)} {p}/{t} — {label}")
+            semua_penuh = semua_penuh and int(progres.get("khusus", 0)) >= int(khusus.get("target", 0))
+        if semua_penuh:
+            blok = _blocker_naik_level(slot, target)
+            if blok:
+                baris.append("Semua tugas beres — tinggal: " + " · ".join(blok))
     else:
         baris.append("Tugas: sudah level terakhir, tidak ada tugas lagi.")
     baris_disimpan = (
@@ -133,6 +189,14 @@ def format_status_card(
     )
     if disinkronkan:
         baris_disimpan += f" · disinkronkan {format_disimpan(disinkronkan)} WIB"
+    if otomatis is not None:
+        from ..core.tiers import nama_tier
+        status_oto = "NYALA" if otomatis else "MATI"
+        jam = int(jam_otomatis or 7)
+        baris_disimpan += (
+            f"\nOtomatis: {status_oto} · {nama_tier(tier)}"
+            f" · siklus tiap {jam:02d}.00 WIB"
+        )
     baris += [
         "",
         baris_disimpan,
@@ -154,29 +218,10 @@ def format_task_card(slot: dict, tugas_data: dict) -> str:
         f"Tugas Level {tingkat + 1} — {target.get('nama', '')}",
         f"Hadiah: {format_rupiah(int(target.get('hadiah', 0)))}",
         "",
+        "```",
     ]
-    for kunci, label in (
-        ("pelanggan", "Pelanggan"),
-        ("barang", "Barang"),
-        ("omzet", "Omzet"),
-    ):
-        t = int(target.get(kunci, 0))
-        p = int(progres.get(kunci, 0))
-        nilai = (
-            f"{format_rupiah_compact(p)} / {format_rupiah_compact(t)}"
-            if kunci == "omzet"
-            else f"{p}/{t}"
-        )
-        baris.append(f"{label:<10}{progress_bar(p, t)} {nilai}")
-    khusus = target.get("khusus", {})
-    if isinstance(khusus, dict) and khusus.get("target"):
-        jenis = str(khusus.get("jenis", ""))
-        t = int(khusus.get("target", 0))
-        p = int(progres.get("khusus", 0))
-        label = KHUSUS_LABEL.get(jenis, "{n}").format(n=t)
-        if jenis == "laba_hari":
-            label = KHUSUS_LABEL[jenis].format(n=format_rupiah(t))
-        baris.append(f"Khusus    {progress_bar(p, t)} {p}/{t} — {label}")
+    baris.extend(_baris_tugas(progres, target))
+    baris.append("```")
     # Syarat lain _cek_tugas() yang tidak terlihat dari progres saja.
     syarat: list[str] = []
     upgrade = target.get("upgrade", [])

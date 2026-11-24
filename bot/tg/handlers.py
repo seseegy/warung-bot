@@ -250,6 +250,23 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await _kirim_status(message, context)
 
 
+def _teks_status(state: dict, context, chat_id: int) -> str:
+    """Kartu status + baris otomatisasi (bila store tersedia)."""
+    store = context.bot_data.get("store")
+    otomatis = tier = jam = None
+    if store is not None:
+        try:
+            otomatis = store.get_otomatis(chat_id)
+            tier = store.get_tier(chat_id)
+            jam = store.get_jam_otomatis(chat_id)
+        except Exception:
+            otomatis = tier = jam = None
+    return format_status_card(
+        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
+        state.get("disinkronkan"), otomatis, tier, jam,
+    )
+
+
 async def _kirim_status(message, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = message.chat_id
     try:
@@ -276,10 +293,7 @@ async def _kirim_status(message, context: ContextTypes.DEFAULT_TYPE) -> None:
     except (CloudError, save_mod.PackageError, save_mod.SlotError) as exc:
         await message.reply_text(f"Tidak bisa mengambil status: {exc}")
         return
-    teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
-        state.get("disinkronkan"),
-    )
+    teks = _teks_status(state, context, message.chat_id)
     await message.reply_text(teks, reply_markup=kb.status_keyboard())
 
 
@@ -366,10 +380,7 @@ async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except (CloudError, save_mod.PackageError, save_mod.SlotError) as exc:
         await message.reply_text(f"Sinkron gagal: {exc}")
         return
-    teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
-        state.get("disinkronkan"),
-    )
+    teks = _teks_status(state, context, message.chat_id)
     await message.reply_text(
         "Sinkron selesai — ini simpanan terbaru dari cloud.\n\n" + teks,
         reply_markup=kb.status_keyboard(),
@@ -508,10 +519,7 @@ async def _tampilkan_status_callback(query, context) -> None:
     except (CloudError, save_mod.PackageError, save_mod.SlotError) as exc:
         await _edit(query, f"Tidak bisa mengambil status: {exc}")
         return
-    teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
-        state.get("disinkronkan"),
-    )
+    teks = _teks_status(state, context, chat_id)
     await _edit(query, teks, kb.status_keyboard())
 
 
@@ -554,10 +562,7 @@ async def _tampilkan_sync_callback(query, context) -> None:
     except (CloudError, save_mod.PackageError, save_mod.SlotError) as exc:
         await _edit(query, f"Sinkron gagal: {exc}")
         return
-    teks = format_status_card(
-        state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
-        state.get("disinkronkan"),
-    )
+    teks = _teks_status(state, context, chat_id)
     await _edit(query, "Sinkron selesai — ini simpanan terbaru dari cloud.\n\n" + teks, kb.status_keyboard())
 
 

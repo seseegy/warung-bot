@@ -159,13 +159,15 @@ def muat_semua_mode_target(scheduler: AsyncIOScheduler, app, store) -> int:
     return jumlah
 
 
-async def _kirim_pengingatan_login(app, chat_id: int, paket: dict) -> None:
-    """Pengingat klaim login harian (Pemula+).
+def _teks_pengingatan_login(app, chat_id: int, paket: dict) -> tuple[str | None, int | None]:
+    """Teks pengingat klaim login harian (Pemula+), tanpa mengirim.
 
     JUJUR: bot TIDAK BISA mengklaim lewat cloud — state login tinggal di
-    pengaturan.cfg HP (bukan paket cloud). Pesan ini hanya mengingatkan;
+    pengaturan.cfg HP (bukan paket cloud). Teks ini hanya mengingatkan;
     pengguna menekan "Sudah Klaim" setelah mengklaim di game, bot lalu
     mencatat streak di Store. Tanpa konfirmasi, streak tidak maju.
+
+    Mengembalikan (teks, n) — ``(None, None)`` bila tidak perlu diingatkan.
     """
     from . import auto as auto_mod
 
@@ -175,7 +177,7 @@ async def _kirim_pengingatan_login(app, chat_id: int, paket: dict) -> None:
     n = auto_mod.login_berikut(int(lacak["hari_ke"]), str(lacak["tanggal"]),
                                hari_ini)
     if n is None:
-        return
+        return None, None
     toko = paket.get("toko", {}) if isinstance(paket, dict) else {}
     tanpa_iklan = bool(toko.get("tanpa_iklan", False)) if isinstance(toko, dict) else False
     lemari = paket.get("lemari", []) if isinstance(paket, dict) else []
@@ -188,6 +190,14 @@ async def _kirim_pengingatan_login(app, chat_id: int, paket: dict) -> None:
         "Klaim di game, lalu tekan Sudah Klaim supaya bot mencatat streak.\n"
         "(Bot tidak bisa mengklaim sendiri — catatan login hanya ada di HP.)"
     )
+    return teks, n
+
+
+async def _kirim_pengingatan_login(app, chat_id: int, paket: dict) -> None:
+    """Kirim pengingat login sebagai pesan terpisah (dipakai jalur lain)."""
+    teks, n = _teks_pengingatan_login(app, chat_id, paket)
+    if teks is None or n is None:
+        return
     try:
         await app.bot.send_message(
             chat_id=chat_id,
@@ -347,8 +357,10 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
         log.warning("siklus otomatis chat %s dilewati: %s", chat_id, exc)
         return
 
-    # Pengingat login harian (tidak mengubah save).
-    await _kirim_pengingatan_login(app, chat_id, state["paket"])
+    # Pengingat login harian (tidak mengubah save) — digabung ke laporan
+    # siklus (bukan pesan terpisah) supaya chat tidak penuh.
+    pengingat_teks, pengingat_n = _teks_pengingatan_login(
+        app, chat_id, state["paket"])
 
     # Siklus murni (tanpa I/O).
     hasil = auto_mod.jalankan_siklus(state["slot"], data, tugas_data,
@@ -434,14 +446,25 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
                              hasil["slot"])
 
     baris = _ringkas_siklus(hasil)
+    markup = None
+    if pengingat_teks and pengingat_n is not None:
+        baris.insert(0, pengingat_teks)
+        markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(
+                "Sudah Klaim", callback_data=f"login:klaim:{pengingat_n}"),
+              InlineKeyboardButton(
+                  "Lihat Status", callback_data="menu:status")]]
+        )
+    else:
+        markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Lihat Status",
+                                   callback_data="menu:status")]]
+        )
     try:
         await app.bot.send_message(
             chat_id=chat_id,
-            text="\n".join(baris),
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Lihat Status",
-                                       callback_data="menu:status")]]
-            ),
+            text="\n\n".join(baris),
+            reply_markup=markup,
         )
     except Exception:
         log.exception("gagal mengirim laporan siklus ke chat %s", chat_id)

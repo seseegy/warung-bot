@@ -667,6 +667,9 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # Hindari token bocor ke log (httpx mencatat URL lengkap di INFO).
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     ctx = load_context()
     host = os.environ.get("API_HOST", "127.0.0.1")
     try:

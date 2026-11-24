@@ -268,6 +268,10 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # Jangan pernah mencatat URL request (mengandung token bot) ke journal:
+    # httpx menulis seluruh URL di level INFO, termasuk path /bot<TOKEN>/....
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     app = build_application()
     log.info("bot mulai (long polling)")
     app.run_polling()

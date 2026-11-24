@@ -79,14 +79,13 @@ def status_keyboard(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
         ])
     baris += [
         [
-            InlineKeyboardButton("Perbarui", callback_data=f"{CB_STATUS}:refresh"),
+            InlineKeyboardButton("Sinkron", callback_data=f"{CB_SYNC}:ambil"),
             InlineKeyboardButton(
                 "Selesaikan Tugas", callback_data=f"{CB_TUGAS}:isi"
             ),
         ],
         [
             InlineKeyboardButton("Ubah Uang", callback_data=f"{CB_UANG}:pilih"),
-            InlineKeyboardButton("Sinkron", callback_data=f"{CB_SYNC}:ambil"),
         ],
         [
             InlineKeyboardButton(
