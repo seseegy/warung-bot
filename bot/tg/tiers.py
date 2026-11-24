@@ -3,8 +3,8 @@
 Perintah (tanpa parameter; semua pilihan lewat tombol inline):
 /tier, /otomatis, /laporan, /bandingkan.
 
-Callback yang ditangani di sini: "tier:*", "otomatis:*", "login:*",
-"laporan:*" — dipanggil dari handlers.on_callback.
+Callback yang ditangani di sini: "tier:*", "otomatis:*", "target:*",
+"login:*", "laporan:*" — dipanggil dari handlers.on_callback.
 
 Penegakan tier di KODE (bukan cuma di UI): /bandingkan butuh
 Profesional; siklus otomatis hanya menjalankan aksi sesuai tier yang
@@ -22,9 +22,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from ..core import auto as auto_mod
+from ..core import jobs as jobs_mod
 from ..core import plan as plan_mod
 from ..core import save as save_mod
 from ..core import sim as sim_mod
+from ..core import target as target_mod
 from ..core import tiers as tiers_mod
 from ..core.cloud import CloudError, NoCloudData, SessionExpired
 from . import keyboards as kb
@@ -95,30 +97,55 @@ async def cmd_otomatis(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if store.get_user(message.chat_id) is None:
         await message.reply_text("Belum ada akun tertaut. Tautkan dulu dengan /link.")
         return
-    tier = store.get_tier(message.chat_id)
-    otomatis = store.get_otomatis(message.chat_id)
-    jam = store.get_jam_otomatis(message.chat_id)
+    teks, markup = _panel_otomatis(store, message.chat_id)
+    await message.reply_text(teks, reply_markup=markup)
+
+
+def _panel_otomatis(store, chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Teks + tombol panel /otomatis (dipakai perintah dan callback)."""
+    tier = store.get_tier(chat_id)
+    otomatis = store.get_otomatis(chat_id)
+    jam = store.get_jam_otomatis(chat_id)
+    mode = store.get_mode_target(chat_id)
     teks = (
         f"Otomatisasi: {'NYALA' if otomatis else 'MATI'}\n"
         f"Tier: {tier} ({tiers_mod.TIER_NAMA[tier]})\n"
-        f"Jam siklus harian: {jam:02d}.00 WIB\n\n"
+        f"Jam siklus harian: {jam:02d}.00 WIB\n"
+        f"Mode Target Level: "
+        f"{'NYALA — target Level ' + str(mode['target_tingkat']) + ' (siklus ' + str(mode['siklus']) + ')' if mode else 'MATI'}\n\n"
         "Bila nyala, bot menjalankan siklus tiap hari pada jam itu: "
         "ambil simpanan terbaru, jalankan aksi sesuai tier, unggah sekali. "
         "Game harus TERTUTUP saat siklus jalan — bila game terbuka dan "
         "mengunggah, siklus dibatalkan supaya tidak ada yang tertimpa."
     )
-    await message.reply_text(
-        teks,
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton(
-                    "Nyalakan" if not otomatis else "Matikan",
-                    callback_data="otomatis:nyala" if not otomatis else "otomatis:mati")],
-                [InlineKeyboardButton("Kembali ke Menu",
-                                      callback_data="menu:root")],
-            ]
-        ),
-    )
+    baris = [
+        [InlineKeyboardButton(
+            "Nyalakan" if not otomatis else "Matikan",
+            callback_data="otomatis:nyala" if not otomatis else "otomatis:mati")],
+    ]
+    if mode:
+        baris.append([InlineKeyboardButton(
+            "Berhentikan Mode Target", callback_data="target:berhenti")])
+    else:
+        baris.append([InlineKeyboardButton(
+            "Mode Target Level", callback_data="target:pilih")])
+    baris.append([InlineKeyboardButton("Kembali ke Menu",
+                                       callback_data="menu:root")])
+    return teks, InlineKeyboardMarkup(baris)
+
+
+def _keyboard_pilih_level() -> InlineKeyboardMarkup:
+    """Tombol pilih level tujuan Mode Target (2-10, tanpa parameter)."""
+    baris = []
+    angka = list(range(2, target_mod.LEVEL_MAKSIMAL + 1))
+    for i in range(0, len(angka), 3):
+        baris.append([
+            InlineKeyboardButton(f"Level {n}",
+                                 callback_data=f"target:konfirmasi:{n}")
+            for n in angka[i:i + 3]
+        ])
+    baris.append([InlineKeyboardButton("Batal", callback_data="target:batal")])
+    return InlineKeyboardMarkup(baris)
 
 
 async def cmd_laporan(update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -295,6 +322,176 @@ def _bandingkan_strategi(slot: dict, data: sim_mod.GameData) -> str:
 
 # -- callback ----------------------------------------------------------
 
+async def _tangani_target(query, context, chat_id: int, data: str) -> bool:
+    """Callback Mode Target Level: pilih/konfirmasi/mulai/berhenti.
+
+    Alur (tanpa parameter perintah, §15): pilih level -> konfirmasi
+    (apa yang akan bot belanjakan) -> mulai. Mulai memvalidasi ulang
+    tier + level tujuan terhadap save terbaru — tombol lama yang
+    kedaluwarsa ditolak, bukan dijalankan buta.
+    """
+    from ..core import tiers as tiers_core
+
+    store = context.bot_data["store"]
+    scheduler = context.bot_data.get("scheduler")
+
+    if data == "target:pilih":
+        try:
+            tiers_core.require_tier(store.get_tier(chat_id), "mode_target")
+        except tiers_core.TierError as exc:
+            await query.edit_message_text(str(exc),
+                                          reply_markup=kb.back_to_menu())
+            return True
+        mode = store.get_mode_target(chat_id)
+        if mode is not None:
+            await query.edit_message_text(
+                "Mode Target sudah nyala "
+                f"(target Level {mode['target_tingkat']}). Berhentikan dulu "
+                "bila mau ganti target.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        await query.edit_message_text(
+            "Mode Target Level — pilih level tujuan. Bot jalan tiap "
+            f"{target_mod.INTERVAL_MENIT} menit (1 hari game per siklus) "
+            "sampai level itu tercapai.",
+            reply_markup=_keyboard_pilih_level(),
+        )
+        return True
+
+    if data == "target:batal":
+        teks, markup = _panel_otomatis(store, chat_id)
+        await query.edit_message_text(teks, reply_markup=markup)
+        return True
+
+    if data == "target:berhenti":
+        if store.get_mode_target(chat_id) is None:
+            await query.edit_message_text(
+                "Mode Target sedang tidak nyala.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        store.hapus_mode_target(chat_id)
+        if scheduler is not None:
+            jobs_mod.hapus_mode_target(scheduler, chat_id)
+        store.log_audit(chat_id, "mode_target_berhenti", "manual")
+        await query.edit_message_text(
+            "Mode Target Level DIMATIKAN.",
+            reply_markup=kb.back_to_menu(),
+        )
+        return True
+
+    bagian = data.split(":")
+    if len(bagian) != 3 or not bagian[2].isdigit():
+        return True
+    target = int(bagian[2])
+    if not 2 <= target <= target_mod.LEVEL_MAKSIMAL:
+        return True
+
+    if bagian[1] == "konfirmasi":
+        try:
+            tiers_core.require_tier(store.get_tier(chat_id), "mode_target")
+        except tiers_core.TierError as exc:
+            await query.edit_message_text(str(exc),
+                                          reply_markup=kb.back_to_menu())
+            return True
+        try:
+            state = await fetch_latest_state(context, chat_id)
+        except NotLinked:
+            await query.edit_message_text("Belum ada akun tertaut.",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        except SessionExpired:
+            await query.edit_message_text(
+                "Sesi login habis. Kirim ulang akun.json dengan /link.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        except (NoCloudData, CloudError, save_mod.PackageError,
+                save_mod.SlotError) as exc:
+            await query.edit_message_text(f"Tidak bisa mengambil status: {exc}",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        level_sekarang = int(state["ringkasan"]["level"])
+        if target <= level_sekarang:
+            await query.edit_message_text(
+                f"Sudah Level {level_sekarang} — pilih target di atas itu.",
+                reply_markup=_keyboard_pilih_level(),
+            )
+            return True
+        await query.edit_message_text(
+            f"Mode Target Level {target} (sekarang Level {level_sekarang}).\n\n"
+            "Bot akan jalan terus tiap "
+            f"{target_mod.INTERVAL_MENIT} menit, 1 hari game per siklus:\n"
+            "- simulasi jualan + restock + isi tugas (seperti siklus harian)\n"
+            "- BAYAR misi cerita Agus bila uang cukup (misi harus lunas "
+            "sebelum naik level)\n"
+            "- BELI upgrade syarat level bila uang cukup (yang termurah)\n\n"
+            "Siklus harian dimatikan selama mode ini nyala (satu otomatisasi "
+            "saja). Mode berhenti sendiri saat target tercapai, bila uang "
+            "habis dan rak kosong, bila diusir, atau bila game mengunggah "
+            "di tengah jalan (bentrok).",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "Ya, mulai", callback_data=f"target:mulai:{target}")],
+                [InlineKeyboardButton("Batal", callback_data="target:batal")],
+            ]),
+        )
+        return True
+
+    if bagian[1] == "mulai":
+        try:
+            tiers_core.require_tier(store.get_tier(chat_id), "mode_target")
+        except tiers_core.TierError as exc:
+            await query.edit_message_text(str(exc),
+                                          reply_markup=kb.back_to_menu())
+            return True
+        try:
+            state = await fetch_latest_state(context, chat_id)
+        except NotLinked:
+            await query.edit_message_text("Belum ada akun tertaut.",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        except SessionExpired:
+            await query.edit_message_text(
+                "Sesi login habis. Kirim ulang akun.json dengan /link.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        except (NoCloudData, CloudError, save_mod.PackageError,
+                save_mod.SlotError) as exc:
+            await query.edit_message_text(f"Tidak bisa mengambil status: {exc}",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        level_sekarang = int(state["ringkasan"]["level"])
+        if target <= level_sekarang:
+            await query.edit_message_text(
+                f"Sudah Level {level_sekarang} — pilih target di atas itu.",
+                reply_markup=_keyboard_pilih_level(),
+            )
+            return True
+        # Satu otomatisasi saja: matikan siklus harian bila nyala.
+        if store.get_otomatis(chat_id):
+            store.set_otomatis(chat_id, False)
+            if scheduler is not None:
+                jobs_mod.hapus_siklus(scheduler, chat_id)
+        store.set_mode_target(chat_id, target)
+        if scheduler is not None:
+            jobs_mod.atur_mode_target(scheduler, context.application, chat_id)
+        store.log_audit(chat_id, "mode_target_mulai",
+                        f"Level {level_sekarang} -> {target}")
+        await query.edit_message_text(
+            f"Mode Target Level {target} DINYALAKAN "
+            f"(dari Level {level_sekarang}).\n"
+            f"Bot jalan tiap {target_mod.INTERVAL_MENIT} menit, 1 hari game "
+            "per siklus. Kabar hanya saat naik level atau mode berhenti.\n"
+            "Game harus TERTUTUP selama mode nyala.",
+            reply_markup=kb.back_to_menu(),
+        )
+        return True
+    return True
+
+
 async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
                            query, data: str) -> bool:
     """Tangani callback tier:/otomatis:/login:/laporan:. True bila ditangani."""
@@ -368,6 +565,14 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
 
     if data.startswith("otomatis:"):
         if data == "otomatis:nyala":
+            # Satu otomatisasi saja yang jalan: Mode Target dimatikan.
+            if store.get_mode_target(chat_id) is not None:
+                store.hapus_mode_target(chat_id)
+                scheduler = context.bot_data.get("scheduler")
+                if scheduler is not None:
+                    jobs_mod.hapus_mode_target(scheduler, chat_id)
+                store.log_audit(chat_id, "mode_target_berhenti",
+                                "diganti siklus harian")
             store.set_otomatis(chat_id, True)
             scheduler = context.bot_data.get("scheduler")
             if scheduler is not None:
@@ -393,6 +598,9 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
             )
             return True
         return True
+
+    if data.startswith("target:"):
+        return await _tangani_target(query, context, chat_id, data)
 
     if data.startswith("login:"):
         if data == "login:lewat":

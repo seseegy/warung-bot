@@ -110,6 +110,55 @@ def muat_semua_otomatis(scheduler: AsyncIOScheduler, app, store) -> int:
     return jumlah
 
 
+# -- Fase 3+: Mode Target Level ----------------------------------------------
+
+def target_job_id(chat_id: int) -> str:
+    return f"target:{chat_id}"
+
+
+def atur_mode_target(scheduler: AsyncIOScheduler, app, chat_id: int) -> None:
+    """Buat/ganti job Mode Target chat ini (tiap 5 menit, WIB).
+
+    Hapus eksplisit dulu (alasan sama seperti atur_laporan: APScheduler
+    3.11 replace_existing tidak mengganti bila scheduler belum jalan).
+    """
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    from . import target as target_mod
+
+    try:
+        scheduler.remove_job(target_job_id(chat_id))
+    except Exception:
+        pass
+    scheduler.add_job(
+        jalankan_mode_target,
+        IntervalTrigger(minutes=target_mod.INTERVAL_MENIT, timezone=WIB),
+        args=[app, int(chat_id)],
+        id=target_job_id(chat_id),
+        replace_existing=True,
+    )
+
+
+def hapus_mode_target(scheduler: AsyncIOScheduler, chat_id: int) -> None:
+    try:
+        scheduler.remove_job(target_job_id(chat_id))
+    except Exception:
+        pass
+
+
+def muat_semua_mode_target(scheduler: AsyncIOScheduler, app, store) -> int:
+    """Muat ulang semua Mode Target aktif dari Store saat start."""
+    jumlah = 0
+    for row in store.all_mode_target():
+        try:
+            atur_mode_target(scheduler, app, int(row["chat_id"]))
+            jumlah += 1
+        except Exception:
+            log.exception("gagal memuat mode target chat %s",
+                          row.get("chat_id"))
+    return jumlah
+
+
 async def _kirim_pengingatan_login(app, chat_id: int, paket: dict) -> None:
     """Pengingat klaim login harian (Pemula+).
 
@@ -398,6 +447,134 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
         log.exception("gagal mengirim laporan siklus ke chat %s", chat_id)
 
 
+async def _matikan_mode_target(app, chat_id: int, alasan: str,
+                               kabari: bool = True) -> None:
+    """Matikan Mode Target: hapus state + job, lalu kabari pengguna."""
+    from . import target as target_mod
+
+    store = app.bot_data["store"]
+    mode = store.get_mode_target(chat_id)
+    store.hapus_mode_target(chat_id)
+    scheduler = app.bot_data.get("scheduler")
+    if scheduler is not None:
+        hapus_mode_target(scheduler, chat_id)
+    store.log_audit(chat_id, "mode_target_berhenti", alasan)
+    if not kabari:
+        return
+    try:
+        await app.bot.send_message(
+            chat_id=chat_id,
+            text=f"Mode Target Level berhenti. {target_mod.teks_berhenti(alasan)}",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Lihat Status",
+                                       callback_data="menu:status")]]
+            ),
+        )
+    except Exception:
+        log.exception("gagal mengabari berhenti mode target ke %s", chat_id)
+
+
+async def jalankan_mode_target(app, chat_id: int) -> None:
+    """Satu siklus Mode Target Level (Fase 3+), tiap 5 menit.
+
+    Urutan: ambil state terbaru -> cek berhenti -> satu siklus target
+    (bayar misi + beli upgrade syarat + siklus harian) -> unggah sekali.
+    Diam pada siklus biasa (tidak spam); kabari hanya saat naik level,
+    target tercapai, atau berhenti karena masalah. Bentrok/sesi habis ->
+    mode dimatikan + pengguna diberi tahu; TIDAK mencoba lagi diam-diam.
+    """
+    from . import target as target_mod
+    from ..tg.confirm import execute_upload
+    from ..tg.status import fetch_latest_state
+
+    store = app.bot_data["store"]
+    data = app.bot_data["data"]
+    tugas_data = app.bot_data["tugas"]
+    session = store.get_user(chat_id)
+    mode = store.get_mode_target(chat_id)
+    if session is None or mode is None:
+        scheduler = app.bot_data.get("scheduler")
+        if scheduler is not None:
+            hapus_mode_target(scheduler, chat_id)
+        return
+    target_tingkat = int(mode["target_tingkat"])
+    tier = store.get_tier(chat_id)
+    batas = store.get_batas_harian(chat_id)
+    ctx = SimpleNamespace(bot_data=app.bot_data)
+    try:
+        state = await fetch_latest_state(ctx, chat_id)
+    except SessionExpired:
+        await _matikan_mode_target(app, chat_id, "sesi_habis")
+        return
+    except (NoCloudData, CloudError, save_mod.PackageError,
+            save_mod.SlotError) as exc:
+        log.warning("mode target chat %s dilewati: %s", chat_id, exc)
+        return
+
+    # Sudah sampai target (mis. sir main sendiri dan naik level)?
+    alasan = target_mod.alasan_berhenti(state["slot"], target_tingkat,
+                                        int(mode["siklus"]))
+    if alasan is not None:
+        await _matikan_mode_target(app, chat_id, alasan)
+        return
+
+    hasil = target_mod.satu_siklus_target(state["slot"], data, tugas_data,
+                                          tier, batas)
+    siklus_baru = store.tambah_siklus_target(chat_id)
+
+    pending = {
+        "kind": "siklus",
+        "id_papan": state["ringkasan"]["id_papan"],
+        "p_data": None,
+        "versi_dasar": int(state["versi"]),
+        "slot_akhir": hasil["slot"],
+        "ringkasan": "Mode Target Level: 1 hari diterapkan",
+    }
+    try:
+        teks, status = await execute_upload(ctx, chat_id, pending)
+    except Exception:
+        log.exception("mode target chat %s gagal saat upload", chat_id)
+        return
+    if status == "bentrok":
+        await _matikan_mode_target(app, chat_id, "bentrok")
+        return
+    if status == "sesi_habis":
+        await _matikan_mode_target(app, chat_id, "sesi_habis")
+        return
+    if status != "ok":
+        log.warning("mode target chat %s gagal: %s", chat_id, teks)
+        return
+
+    # Sukses: catat audit untuk aksi yang membelanjakan uang.
+    for a in hasil["aksi"]:
+        if a.get("aksi") in ("bayar_misi", "beli_upgrade") and a.get("ok"):
+            store.log_audit(chat_id, str(a["aksi"]),
+                            _format_rupiah(a.get("jumlah", 0)))
+
+    if hasil["slot"].get("diusir"):
+        await _matikan_mode_target(app, chat_id, "diusir")
+        return
+    alasan = target_mod.alasan_berhenti(hasil["slot"], target_tingkat,
+                                        siklus_baru)
+    if alasan is not None:
+        await _matikan_mode_target(app, chat_id, alasan)
+        return
+    if hasil["naik"]:
+        level_baru = int(hasil["tingkat_akhir"]) + 1
+        try:
+            await app.bot.send_message(
+                chat_id=chat_id,
+                text=f"Mode Target: naik ke Level {level_baru} "
+                     f"(target Level {target_tingkat}).",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Lihat Status",
+                                           callback_data="menu:status")]]
+                ),
+            )
+        except Exception:
+            log.exception("gagal mengabari naik level mode target %s", chat_id)
+
+
 def muat_semua_jadwal(scheduler: AsyncIOScheduler, app, store) -> int:
     """Muat ulang semua jadwal aktif dari Store saat start. Return jumlah."""
     jumlah = 0
@@ -447,10 +624,10 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
     tanpa restart bot. Idempotent: job yang jamnya sudah benar dibiarkan
     (tidak dihapus-dibuat ulang, supaya tidak ada jadwal yang terlewat
     bila sinkronisasi berjalan tepat di menit eksekusi).
-    Mengembalikan {"laporan": n, "otomatis": n, "dihapus": n} — jumlah job
-    yang DIUBAH (bukan yang sudah benar).
+    Mengembalikan {"laporan": n, "otomatis": n, "target": n, "dihapus": n} —
+    jumlah job yang DIUBAH (bukan yang sudah benar).
     """
-    hasil = {"laporan": 0, "otomatis": 0, "dihapus": 0}
+    hasil = {"laporan": 0, "otomatis": 0, "target": 0, "dihapus": 0}
     ingin_laporan = {
         int(r["chat_id"]): int(r["jam"])
         for r in store.all_jadwal() if r.get("aktif")
@@ -476,6 +653,18 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
             hasil["otomatis"] += 1
         except Exception:
             log.exception("gagal menyinkronkan siklus chat %s", chat_id)
+    ingin_target = {
+        int(r["chat_id"]): int(r["target_tingkat"])
+        for r in store.all_mode_target()
+    }
+    for chat_id in ingin_target:
+        if scheduler.get_job(target_job_id(chat_id)) is not None:
+            continue  # Sudah benar — dibiarkan.
+        try:
+            atur_mode_target(scheduler, app, chat_id)
+            hasil["target"] += 1
+        except Exception:
+            log.exception("gagal menyinkronkan mode target chat %s", chat_id)
     for job in list(scheduler.get_jobs()):
         jid = str(job.id or "")
         try:
@@ -487,6 +676,9 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
             hasil["dihapus"] += 1
         elif jid.startswith("otomatis:") and cid not in ingin_otomatis:
             hapus_siklus(scheduler, cid)
+            hasil["dihapus"] += 1
+        elif jid.startswith("target:") and cid not in ingin_target:
+            hapus_mode_target(scheduler, cid)
             hasil["dihapus"] += 1
     return hasil
 

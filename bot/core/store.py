@@ -141,6 +141,13 @@ class Store:
                 updated_at  INTEGER,
                 PRIMARY KEY (chat_id, kunci)
             );
+            CREATE TABLE IF NOT EXISTS mode_target (
+                chat_id     INTEGER PRIMARY KEY,
+                target_tingkat INTEGER NOT NULL,
+                siklus      INTEGER NOT NULL DEFAULT 0,
+                dimulai     INTEGER NOT NULL,
+                updated_at  INTEGER
+            );
             """
         )
         self._conn.commit()
@@ -270,6 +277,7 @@ class Store:
         self._conn.execute("DELETE FROM audit_log WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM login_lacak WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM peringkat WHERE chat_id=?", (chat_id,))
+        self._conn.execute("DELETE FROM mode_target WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM meta WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM users WHERE chat_id=?", (chat_id,))
         self._conn.commit()
@@ -422,6 +430,64 @@ class Store:
         ).fetchall()
         return [{"chat_id": r["chat_id"], "tier": r["tier"],
                  "jam": r["jam_otomatis"]} for r in rows]
+
+    # -- mode target level (Fase 3+) --------------------------------------
+    def get_mode_target(self, chat_id: int) -> dict | None:
+        """Mode Target aktif chat ini, atau None bila tidak aktif."""
+        row = self._conn.execute(
+            "SELECT target_tingkat, siklus, dimulai FROM mode_target "
+            "WHERE chat_id=?", (chat_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return {"target_tingkat": int(row["target_tingkat"]),
+                "siklus": int(row["siklus"]),
+                "dimulai": int(row["dimulai"])}
+
+    def set_mode_target(self, chat_id: int, target_tingkat: int) -> None:
+        """Nyalakan Mode Target (siklus dihitung dari 0)."""
+        kini = int(time.time())
+        self._conn.execute(
+            """
+            INSERT INTO mode_target (chat_id, target_tingkat, siklus,
+                                     dimulai, updated_at)
+            VALUES (?, ?, 0, ?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                target_tingkat=excluded.target_tingkat, siklus=0,
+                dimulai=excluded.dimulai, updated_at=excluded.updated_at
+            """,
+            (chat_id, int(target_tingkat), kini, kini),
+        )
+        self._conn.commit()
+
+    def tambah_siklus_target(self, chat_id: int) -> int:
+        """Naikkan hitungan siklus Mode Target; kembalikan jumlah baru."""
+        self._conn.execute(
+            "UPDATE mode_target SET siklus=siklus+1, updated_at=? "
+            "WHERE chat_id=?", (int(time.time()), chat_id),
+        )
+        self._conn.commit()
+        row = self._conn.execute(
+            "SELECT siklus FROM mode_target WHERE chat_id=?", (chat_id,)
+        ).fetchone()
+        return int(row["siklus"]) if row is not None else 0
+
+    def hapus_mode_target(self, chat_id: int) -> None:
+        """Matikan Mode Target chat ini."""
+        self._conn.execute(
+            "DELETE FROM mode_target WHERE chat_id=?", (chat_id,))
+        self._conn.commit()
+
+    def all_mode_target(self) -> list[dict]:
+        """Semua chat dengan Mode Target aktif (muat ulang job saat start)."""
+        rows = self._conn.execute(
+            "SELECT chat_id, target_tingkat, siklus, dimulai "
+            "FROM mode_target"
+        ).fetchall()
+        return [{"chat_id": r["chat_id"],
+                 "target_tingkat": int(r["target_tingkat"]),
+                 "siklus": int(r["siklus"]),
+                 "dimulai": int(r["dimulai"])} for r in rows]
 
     # -- log audit (Fase 3) ---------------------------------------------
     def log_audit(self, chat_id: int, aksi: str, detail: str = "",

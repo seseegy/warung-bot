@@ -45,7 +45,8 @@ TIER_DESKRIPSI = {
     TIER_PROFESIONAL: (
         "Semua Standar, ditambah: harga dinamis per barang (pilih hasil "
         "terbaik dari 3 simulasi), rencana naik level, auto-bayar "
-        "sewa/zakat/cicilan motor, lacak posisi peringkat."
+        "sewa/zakat/cicilan motor, lacak posisi peringkat, Mode Target "
+        "Level (kerja nonstop sampai level tujuan)."
     ),
 }
 
@@ -62,6 +63,9 @@ FITUR_MIN_TIER = {
     "rencana_level": TIER_PROFESIONAL,
     "auto_bayar": TIER_PROFESIONAL,
     "peringkat": TIER_PROFESIONAL,
+    # Mode Target Level: jalan tiap 5 menit sampai level tujuan (butuh
+    # harga dinamis + auto-bayar + bayar misi + beli upgrade syarat).
+    "mode_target": TIER_PROFESIONAL,
     # Fase 5: aksi cepat mengubah save langsung (jual/beli/ngopi/tutup).
     "aksi_cepat": TIER_STANDAR,
 }
@@ -78,6 +82,7 @@ FITUR_NAMA = {
     "rencana_level": "rencana naik level",
     "auto_bayar": "auto-bayar sewa/zakat/cicilan",
     "peringkat": "lacak peringkat",
+    "mode_target": "mode target level",
     "aksi_cepat": "aksi cepat (jual/beli/ngopi/tutup)",
 }
 

@@ -74,7 +74,8 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   `harga_pasaran` DI SAVE, tidak ditebak), auto-isi progres tugas.
 - **Profesional** — semua Standar + harga dinamis per barang (brute force,
   hanya yang labanya lebih besar), terbaik dari 3 simulasi, auto-bayar
-  sewa/zakat/cicilan motor, lacak posisi peringkat.
+  sewa/zakat/cicilan motor, lacak posisi peringkat, **Mode Target Level**
+  (kerja nonstop sampai level tujuan, lihat di bawah).
 - `/tier` — pilih tier lewat kartu inline (penjelasan tiap tier +
   konfirmasi sebelum aktivasi pertama), `/otomatis` — nyalakan/matikan
   siklus (tombol, tanpa parameter), `/laporan` — ringkasan harian/mingguan
@@ -97,6 +98,21 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   pelacak login + peringkat pengguna.
 - **Peringkat hanya dibaca, tidak pernah dikirim** (lihat "Keputusan:
   skor adu laris tidak dikirim" di bawah).
+- **Mode Target Level (Fase 3+, Profesional)** — di panel `/otomatis`:
+  pilih level tujuan (2-10) lewat tombol → konfirmasi → bot jalan
+  terus tiap **5 menit**, 1 hari game per siklus, sampai level itu
+  tercapai. Tiap siklus: bayar misi cerita Agus bila uang cukup
+  (misi harus lunas sebelum naik level) → beli upgrade syarat level
+  bila uang cukup (yang termurah, sisa uang dijaga >= Rp50.000) →
+  siklus harian biasa (simulasi + restock + isi tugas + auto-bayar).
+  Kabar hanya saat naik level atau mode berhenti. Berhenti otomatis:
+  target tercapai, diusir, uang habis + rak kosong (macet — jalan
+  keluarnya kerja sampingan manual, tidak dimodelkan sim), maks 300
+  siklus (~25 jam), bentrok, atau sesi habis. Berhenti manual lewat
+  tombol di panel. **Satu otomatisasi saja**: menyalakan mode ini
+  mematikan siklus harian, dan sebaliknya. `/unlink` menghapus mode
+  target pengguna. Job `target:<chat_id>`, state di tabel `mode_target`,
+  dimuat ulang saat bot start + disinkronkan tiap 10 menit.
 
 ## Fitur Fase 4 — Mini App dashboard
 
@@ -284,7 +300,8 @@ bot bila `MINIAPP_URL` diisi.
 ```
 
 285 tes (saat penyerahan Fase 4) + 113 tes Fase 5 + 7 tes proxy
-(live-run 24 Nov 2026) + 4 tes perbaikan jam (24 Nov 2026) = **409 tes**: Fase 1 (70) + Fase 2 (73) +
+(live-run 24 Nov 2026) + 4 tes perbaikan jam (24 Nov 2026) + 23 tes Mode
+Target Level (24 Nov 2026) = **432 tes**: Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),
