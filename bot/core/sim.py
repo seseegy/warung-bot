@@ -1204,6 +1204,17 @@ def simulate(slot: dict, data: GameData, jumlah_hari: int,
         raise SimError("maksimal 30 hari per simulasi")
     rng = random.Random(seed) if seed is not None else random.Random()
     s = _normalisasi_slot(slot)
+    # Terima kiriman stok yang menunggu (kurir mengantar saat game "dibuka").
+    # Dalam game, kiriman masuk ke stok setelah ``durasi_kirim`` berjalan;
+    # simulasi tidak membuka game nyata, jadi kiriman harus diantar di sini
+    # agar stok yang dibeli bot tidak menggantung selamanya.
+    kiriman = s.get("kiriman_stok") or {}
+    if isinstance(kiriman, dict) and kiriman:
+        stok = s.setdefault("stok", {})
+        for item_id, jumlah in kiriman.items():
+            if int(jumlah) > 0:
+                stok[item_id] = int(stok.get(item_id, 0)) + int(jumlah)
+        s["kiriman_stok"] = {}
     uang_awal = int(s.get("uang", 0))
     qris_awal = int(s.get("saldo_digital", 0))
     layanan_awal = int(s.get("saldo_layanan", 0))

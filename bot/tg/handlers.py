@@ -264,6 +264,7 @@ def _teks_status(state: dict, context, chat_id: int) -> str:
     return format_status_card(
         state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
         state.get("disinkronkan"), otomatis, tier, jam,
+        context.bot_data.get("data"),
     )
 
 

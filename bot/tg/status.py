@@ -103,11 +103,12 @@ def _baris_tugas(progres: dict, target: dict) -> list[str]:
     return baris
 
 
-def _blocker_naik_level(slot: dict, target: dict) -> list[str]:
+def _blocker_naik_level(slot: dict, target: dict, data=None) -> list[str]:
     """Sebab-sebab progres penuh tapi level belum naik (jujur, seperti
     ``fill_task_progress``/``format_task_card``).
 
-    Mengembalikan daftar pesan pendek untuk ditampilkan di kartu status.
+    ``data`` (opsional) = GameData untuk nama + harga upgrade. Bila None,
+    jatuh ke id mentah. Mengembalikan daftar pesan pendek.
     """
     blockers: list[str] = []
     syarat_upgrade = target.get("upgrade", [])
@@ -116,8 +117,20 @@ def _blocker_naik_level(slot: dict, target: dict) -> list[str]:
         if not isinstance(dimiliki, list):
             dimiliki = []
         if not any(u in dimiliki for u in syarat_upgrade):
-            blockers.append(
-                "beli upgrade " + "/".join(str(u) for u in syarat_upgrade))
+            nama_teks: list[str] = []
+            for uid in syarat_upgrade:
+                info = None
+                if data is not None:
+                    info = data.upgrade_by_id.get(str(uid))
+                if info and info.get("nama"):
+                    nama = str(info["nama"])
+                    harga = int(info.get("harga", 0))
+                    if harga:
+                        nama += f" ({format_rupiah_compact(harga)})"
+                    nama_teks.append(nama)
+                else:
+                    nama_teks.append(str(uid))
+            blockers.append("beli upgrade " + "/".join(nama_teks))
     misi_status = str(slot.get("misi_status", ""))
     cerita_tamat = bool(slot.get("cerita_tamat", False))
     if misi_status not in ("", "lunas") and not cerita_tamat:
@@ -131,6 +144,7 @@ def format_status_card(
     otomatis: bool | None = None,
     tier: int | None = None,
     jam_otomatis: int | None = None,
+    data=None,
 ) -> str:
     """Kartu status (RANCANGAN §15.4).
 
@@ -141,6 +155,8 @@ def format_status_card(
     ``otomatis``/``tier``/``jam_otomatis`` (opsional) = ringkasan status
     otomatisasi di bawah kartu. ``otomatis=None`` (default) = tidak
     ditampilkan (dipakai jalur yang belum punya akses store).
+
+    ``data`` (opsional) = GameData untuk nama + harga upgrade syarat.
     """
     tingkat = int(slot.get("tingkat", 0))
     try:
@@ -178,7 +194,7 @@ def format_status_card(
         if isinstance(khusus, dict) and khusus.get("target"):
             semua_penuh = semua_penuh and int(progres.get("khusus", 0)) >= int(khusus.get("target", 0))
         if semua_penuh:
-            blok = _blocker_naik_level(slot, target)
+            blok = _blocker_naik_level(slot, target, data)
             if blok:
                 baris.append("Semua tugas beres — tinggal: " + " · ".join(blok))
     else:

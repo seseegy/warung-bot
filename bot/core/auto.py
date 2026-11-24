@@ -431,8 +431,8 @@ def auto_beli_stok(slot: dict, data: GameData) -> tuple[dict, list]:
     sampai 20 (dibatasi sisa muat rak). Uang sesudah beli tidak boleh
     turun di bawah Rp50.000, dan bila sewa jatuh tempo dalam 7 hari,
     tagihan sewa ikut dicadangkan. Biaya = harga_modal x jumlah;
-    uang -= biaya; KIRIMAN bertambah (stok masuk ~30 detik setelah game
-    dibuka — game memulai ulang timer kirim saat load).
+    uang -= biaya; barang LANGSUNG masuk ``stok`` (bukan ``kiriman_stok``)
+    supaya bisa dijual pada simulasi berikutnya tanpa menunggu kurir.
     Mengembalikan (slot_baru, aksi).
     """
     slot = copy.deepcopy(slot)
@@ -470,7 +470,11 @@ def auto_beli_stok(slot: dict, data: GameData) -> tuple[dict, list]:
                          "biaya": biaya})
             continue
         slot["uang"] = int(slot.get("uang", 0)) - biaya
-        kiriman[item_id] = int(kiriman.get(item_id, 0)) + jumlah
+        # Langsung masuk stok (bukan kiriman_stok) supaya barang tersedia
+        # untuk dijual pada simulasi berikutnya. Game asli menunggu kurir
+        # mengantar (kiriman_stok), tapi Mode Target tidak membuka game
+        # sehingga kiriman tidak pernah sampai -> pelanggan selalu batal.
+        stok[item_id] = int(stok.get(item_id, 0)) + jumlah
         slot["belanja_hari"] = int(slot.get("belanja_hari", 0) or 0) + biaya
         catat_transaksi(
             slot, f"Belanja {jumlah} {str(item.get('nama', item_id)).lower()}",
@@ -576,11 +580,13 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
     """Satu siklus otomatis harian (murni). Urutan:
 
     1. Harga ikut pasar (Standar+) lalu harga dinamis (Profesional).
-    2. Simulasi 1 hari (Standar) / terbaik dari 3 (Profesional).
+    2. Auto-beli stok (Standar+) — SEBELUM simulasi supaya ada barang
+       untuk dijual hari ini.
+    3. Simulasi 1 hari (Standar) / terbaik dari 3 (Profesional).
        Bila kenaikan uang simulasi melebihi batas harian -> simulasi
        TIDAK diterapkan (harga tetap, stok/tugas/bayar tetap jalan).
-    3. Auto-beli stok (Standar+).
-    4. Auto-isi progres tugas (Standar+).
+    4. Auto-isi progres tugas (Standar+), lalu terapkan naik level bila
+       semua syarat sudah terpenuhi.
     5. Auto-bayar (Profesional): sewa (hari sewa / cicil 3 hari sebelum
        jatuh tempo), zakat (hari 81-84), cicilan motor (tempo <= 3 hari).
     Mengembalikan {"slot": slot_akhir, "aksi": [...], "sim": {...}|None,
@@ -601,7 +607,14 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         slot, ubah = auto_harga_dinamis(slot, data)
         aksi.extend(ubah)
 
-    # 2. Simulasi hari.
+    # 2. Auto-beli stok (SEBELUM simulasi) supaya ada barang untuk dijual
+    # hari ini. Tanpa ini, hari sewa mengunci uang di cadangan -> tidak
+    # bisa beli stok -> pelanggan batal -> rugi terus.
+    if tier >= TIER_STANDAR:
+        slot, beli = auto_beli_stok(slot, data)
+        aksi.extend(beli)
+
+    # 3. Simulasi hari.
     sim_ringkasan: dict | None = None
     batas_terlampaui = False
     if tier >= TIER_STANDAR:
@@ -639,11 +652,6 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
             }
             aksi.append({"aksi": "simulasi", "ok": True, **sim_ringkasan})
 
-    # 3. Auto-beli stok.
-    if tier >= TIER_STANDAR:
-        slot, beli = auto_beli_stok(slot, data)
-        aksi.extend(beli)
-
     # 4. Auto-isi tugas.
     if tier >= TIER_STANDAR:
         try:
@@ -653,6 +661,22 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         except save_mod.TaskError as exc:
             aksi.append({"aksi": "isi_tugas", "ok": False,
                          "alasan": str(exc)})
+
+    # 4b. Terapkan naik level bila semua syarat sudah terpenuhi.
+    # _cek_tugas() di game hanya terpicu saat penjualan/pelanggan dilayani;
+    # auto_isi_tugas mengisi progres langsung (tanpa penjualan) sehingga
+    # level tidak pernah naik walau progres penuh + upgrade + misi beres.
+    # Panggil eksplisit di sini agar hadiah cair + progres reset + level
+    # naik — persis seperti game mengecek tugas.
+    tingkat_sebelum = int(slot.get("tingkat", 0))
+    while sim_mod._cek_tugas(slot, data):
+        # Bisa naik beberapa level sekaligus bila progres sengaja penuh
+        # (mis. /tugas_selesai) — ulangi sampai stabil.
+        pass
+    if int(slot.get("tingkat", 0)) != tingkat_sebelum:
+        aksi.append({"aksi": "naik_level", "ok": True,
+                     "dari": tingkat_sebelum + 1,
+                     "ke": int(slot.get("tingkat", 0)) + 1})
 
     # 5. Auto-bayar (Profesional).
     if tier >= TIER_PROFESIONAL:

@@ -190,8 +190,15 @@ async def test_job_mode_target_siklus_biasa_diam(
     _link_target(store)
     bot_mock = SimpleNamespace(send_message=AsyncMock())
     app = _fake_app(store, tugas_data, game_data, bot_mock)
-    state = {"slot": copy.deepcopy(rich_slot),
-             "ringkasan": {"nama": "W", "level": 1, "hari": 1,
+    # Level 2 (tingkat=1) dengan syarat upgrade "kipas" yang BELUM dimiliki:
+    # progres bisa penuh, tapi level TIDAK naik -> siklus biasa harus diam.
+    slot = copy.deepcopy(rich_slot)
+    slot["tingkat"] = 1
+    slot["upgrade"] = []
+    slot["misi_status"] = ""
+    slot["progres"] = {"pelanggan": 0, "barang": 0, "omzet": 0, "khusus": 0}
+    state = {"slot": slot,
+             "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
              "versi": 1, "paket": {"toko": {}, "lemari": []}}
 

@@ -85,9 +85,10 @@ def test_auto_beli_stok_membeli_saat_menipis(rich_slot, game_data):
     modal = sim_mod.harga_modal(game_data, "beras", slot)
     assert beli[0]["biaya"] == modal * 18
     assert slot_baru["uang"] == 500000 - modal * 18
-    # Stok masuk kiriman (bukan instan) — seperti beli_stok() game.
-    assert slot_baru["kiriman_stok"]["beras"] == 18
-    assert slot_baru["stok"]["beras"] == 2
+    # Stok LANGSUNG masuk stok (bukan kiriman_stok) supaya bisa dijual
+    # pada simulasi berikutnya tanpa menunggu kurir (Mode Target).
+    assert slot_baru["stok"]["beras"] == 20
+    assert slot_baru["kiriman_stok"].get("beras", 0) == 0
     # Slot asli tidak diubah (fungsi murni).
     assert slot["uang"] == 500000
 
@@ -125,8 +126,10 @@ def test_auto_beli_membeli_semua_yang_menipis(rich_slot, game_data):
     slot_baru, aksi = auto_mod.auto_beli_stok(slot, game_data)
     beli = {a["id"] for a in aksi if a.get("ok")}
     assert beli == {"beras", "gula"}
-    assert slot_baru["kiriman_stok"]["beras"] == 19
-    assert slot_baru["kiriman_stok"]["gula"] == 19
+    assert slot_baru["stok"]["beras"] == 20
+    assert slot_baru["stok"]["gula"] == 20
+    assert slot_baru["kiriman_stok"].get("beras", 0) == 0
+    assert slot_baru["kiriman_stok"].get("gula", 0) == 0
 
 
 def test_auto_beli_tidak_beli_barang_titipan(rich_slot, game_data):
