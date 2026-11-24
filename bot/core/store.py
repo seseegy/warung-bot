@@ -148,6 +148,14 @@ class Store:
                 dimulai     INTEGER NOT NULL,
                 updated_at  INTEGER
             );
+            CREATE TABLE IF NOT EXISTS mode_kejar (
+                chat_id     INTEGER PRIMARY KEY,
+                target_peringkat INTEGER NOT NULL,
+                target_pembeli INTEGER NOT NULL,
+                siklus      INTEGER NOT NULL DEFAULT 0,
+                dimulai     INTEGER NOT NULL,
+                updated_at  INTEGER
+            );
             """
         )
         self._conn.commit()
@@ -278,6 +286,7 @@ class Store:
         self._conn.execute("DELETE FROM login_lacak WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM peringkat WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM mode_target WHERE chat_id=?", (chat_id,))
+        self._conn.execute("DELETE FROM mode_kejar WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM meta WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM users WHERE chat_id=?", (chat_id,))
         self._conn.commit()
@@ -486,6 +495,74 @@ class Store:
         ).fetchall()
         return [{"chat_id": r["chat_id"],
                  "target_tingkat": int(r["target_tingkat"]),
+                 "siklus": int(r["siklus"]),
+                 "dimulai": int(r["dimulai"])} for r in rows]
+
+    # -- mode kejar papan (Fase 3+) --------------------------------------
+    def get_mode_kejar(self, chat_id: int) -> dict | None:
+        """Mode Kejar Papan aktif chat ini, atau None bila tidak aktif."""
+        row = self._conn.execute(
+            "SELECT target_peringkat, target_pembeli, siklus, dimulai "
+            "FROM mode_kejar WHERE chat_id=?", (chat_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return {"target_peringkat": int(row["target_peringkat"]),
+                "target_pembeli": int(row["target_pembeli"]),
+                "siklus": int(row["siklus"]),
+                "dimulai": int(row["dimulai"])}
+
+    def set_mode_kejar(self, chat_id: int, target_peringkat: int,
+                       target_pembeli: int) -> None:
+        """Nyalakan Mode Kejar Papan (siklus dihitung dari 0).
+
+        ``target_pembeli`` = batas total pembeli baris peringkat target
+        saat mulai (dibaca live dari papan); job memperbarui batas ini
+        tiap siklus dari papan terbaru.
+        """
+        kini = int(time.time())
+        self._conn.execute(
+            """
+            INSERT INTO mode_kejar (chat_id, target_peringkat,
+                                    target_pembeli, siklus, dimulai,
+                                    updated_at)
+            VALUES (?, ?, ?, 0, ?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                target_peringkat=excluded.target_peringkat,
+                target_pembeli=excluded.target_pembeli, siklus=0,
+                dimulai=excluded.dimulai, updated_at=excluded.updated_at
+            """,
+            (chat_id, int(target_peringkat), int(target_pembeli), kini, kini),
+        )
+        self._conn.commit()
+
+    def tambah_siklus_kejar(self, chat_id: int) -> int:
+        """Naikkan hitungan siklus Mode Kejar Papan; kembalikan jumlah baru."""
+        self._conn.execute(
+            "UPDATE mode_kejar SET siklus=siklus+1, updated_at=? "
+            "WHERE chat_id=?", (int(time.time()), chat_id),
+        )
+        self._conn.commit()
+        row = self._conn.execute(
+            "SELECT siklus FROM mode_kejar WHERE chat_id=?", (chat_id,)
+        ).fetchone()
+        return int(row["siklus"]) if row is not None else 0
+
+    def hapus_mode_kejar(self, chat_id: int) -> None:
+        """Matikan Mode Kejar Papan chat ini."""
+        self._conn.execute(
+            "DELETE FROM mode_kejar WHERE chat_id=?", (chat_id,))
+        self._conn.commit()
+
+    def all_mode_kejar(self) -> list[dict]:
+        """Semua chat dengan Mode Kejar Papan aktif (muat ulang job saat start)."""
+        rows = self._conn.execute(
+            "SELECT chat_id, target_peringkat, target_pembeli, siklus, "
+            "dimulai FROM mode_kejar"
+        ).fetchall()
+        return [{"chat_id": r["chat_id"],
+                 "target_peringkat": int(r["target_peringkat"]),
+                 "target_pembeli": int(r["target_pembeli"]),
                  "siklus": int(r["siklus"]),
                  "dimulai": int(r["dimulai"])} for r in rows]
 

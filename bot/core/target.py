@@ -118,6 +118,13 @@ def alasan_berhenti(slot: dict, target_tingkat: int, siklus: int) -> str | None:
     """Alasan berhenti (None bila lanjut). Diperiksa job tiap siklus."""
     if int(slot.get("tingkat", 0)) + 1 >= int(target_tingkat):
         return "target_tercapai"
+    # Uang minus: berhenti sebelum siklus berikutnya — sim memotong biaya
+    # harian walau uang sudah habis (seperti game asli, tutup_hari()
+    # game_state.gd:6723), dan 3 hari minus berturut-turut = bangkrut
+    # (BATAS_HARI_MINUS, game_state.gd:136). Insiden 24 Nov 2026:
+    # mode jalan terus sampai uang -Rp30.000.
+    if int(slot.get("uang", 0)) < 0:
+        return "uang_minus"
     if bool(slot.get("diusir")):
         return "diusir"
     if int(siklus) >= MAKS_SIKLUS:
@@ -175,6 +182,11 @@ def satu_siklus_target(slot_awal: dict, data, tugas_data: dict,
 
 TEKS_BERHENTI = {
     "target_tercapai": "Target tercapai.",
+    "uang_minus": (
+        "Uang save MINUS — mode berhenti supaya tidak makin berdarah. "
+        "Cari uang dulu di game (kerja sampingan / jual hasil jelajah), "
+        "lalu nyalakan lagi."
+    ),
     "diusir": "Warung diusir (sewa menunggak 3 minggu). Mode berhenti.",
     "maks_siklus": (
         f"Batas {MAKS_SIKLUS} siklus tercapai. Nyalakan lagi bila mau lanjut."

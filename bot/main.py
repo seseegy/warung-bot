@@ -241,6 +241,9 @@ async def _startup(app: Application) -> None:
     jumlah_target = jobs_mod.muat_semua_mode_target(
         scheduler, app, app.bot_data["store"])
     log.info("mode target level dimuat: %d job aktif", jumlah_target)
+    jumlah_kejar = jobs_mod.muat_semua_mode_kejar(
+        scheduler, app, app.bot_data["store"])
+    log.info("mode kejar papan dimuat: %d job aktif", jumlah_kejar)
     # Fase 4: sinkronisasi berkala — perubahan pengaturan dari Mini App
     # (proses API terpisah) berlaku tanpa restart bot.
     jobs_mod.atur_sinkronisasi(scheduler, app)

@@ -75,7 +75,8 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
 - **Profesional** — semua Standar + harga dinamis per barang (brute force,
   hanya yang labanya lebih besar), terbaik dari 3 simulasi, auto-bayar
   sewa/zakat/cicilan motor, lacak posisi peringkat, **Mode Target Level**
-  (kerja nonstop sampai level tujuan, lihat di bawah).
+  (kerja nonstop sampai level tujuan, lihat di bawah), **Mode Kejar
+  Papan** (kerja nonstop sampai masuk peringkat target, lihat di bawah).
 - `/tier` — pilih tier lewat kartu inline (penjelasan tiap tier +
   konfirmasi sebelum aktivasi pertama), `/otomatis` — nyalakan/matikan
   siklus (tombol, tanpa parameter), `/laporan` — ringkasan harian/mingguan
@@ -98,6 +99,20 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   pelacak login + peringkat pengguna.
 - **Peringkat hanya dibaca, tidak pernah dikirim** (lihat "Keputusan:
   skor adu laris tidak dikirim" di bawah).
+- **Penjaga Saldo (Fase 3+, semua otomatisasi)** — bot tidak boleh
+  pernah minus dan tidak boleh pernah bangkrut. Tiap siklus diawali dan
+  diakhiri penjaga (`jaga_saldo`, `bot/core/auto.py`): bila uang di
+  bawah Rp50.000, bot menambah otomatis sampai Rp50.000; bila saat itu
+  `hari_minus > 0` dan warung belum diusir, `hari_minus` direset ke 0
+  dan `bangkrut` dibersihkan (meniru rumus game `tutup_hari()`,
+  `game_state.gd:6723-6738`). JUJUR: uang ini ditambahkan dari
+  ketiadaan atas perintah pengguna (24 Nov 2026), BUKAN dari
+  permainan. Tiap top-up tercatat di audit log (aksi `jaga_saldo`,
+  detail jumlah) dan disebutkan di laporan siklus / pesan naik level /
+  berhenti / mulai. Mulai Mode Target / Mode Kejar tidak lagi ditolak
+  bila uang minus — siklus pertama yang memperbaikinya (jumlah top-up
+  disebutkan di pesan konfirmasi/mulai). Alasan berhenti `uang_minus`
+  dipertahankan sebagai jaring pengaman. Sim tidak diubah.
 - **Mode Target Level (Fase 3+, Profesional)** — di panel `/otomatis`:
   pilih level tujuan (2-10) lewat tombol → konfirmasi → bot jalan
   terus tiap **5 menit**, 1 hari game per siklus, sampai level itu
@@ -106,13 +121,37 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   bila uang cukup (yang termurah, sisa uang dijaga >= Rp50.000) →
   siklus harian biasa (simulasi + restock + isi tugas + auto-bayar).
   Kabar hanya saat naik level atau mode berhenti. Berhenti otomatis:
-  target tercapai, diusir, uang habis + rak kosong (macet — jalan
-  keluarnya kerja sampingan manual, tidak dimodelkan sim), maks 300
-  siklus (~25 jam), bentrok, atau sesi habis. Berhenti manual lewat
-  tombol di panel. **Satu otomatisasi saja**: menyalakan mode ini
-  mematikan siklus harian, dan sebaliknya. `/unlink` menghapus mode
-  target pengguna. Job `target:<chat_id>`, state di tabel `mode_target`,
-  dimuat ulang saat bot start + disinkronkan tiap 10 menit.
+  target tercapai, diusir, uang MINUS (jaring pengaman — Penjaga Saldo
+  seharusnya mencegahnya; pelajaran insiden 24 Nov 2026), uang habis +
+  rak kosong (macet — jalan keluarnya kerja sampingan manual, tidak
+  dimodelkan sim), maks 300 siklus (~25 jam), bentrok, atau sesi habis.
+  Berhenti manual lewat tombol di panel. **Satu otomatisasi saja**:
+  menyalakan mode ini mematikan siklus harian, dan sebaliknya.
+  `/unlink` menghapus mode target pengguna. Job `target:<chat_id>`,
+  state di tabel `mode_target`, dimuat ulang saat bot start +
+  disinkronkan tiap 10 menit.
+- **Mode Kejar Papan (Fase 3+, Profesional)** — di panel `/otomatis`:
+  pilih peringkat tujuan (Top 25 / 50 / 100) lewat tombol → konfirmasi
+  (total pembeli sekarang vs batas peringkat itu, dibaca LIVE dari
+  papan) → bot jalan terus tiap **5 menit**, 1 hari game per siklus,
+  sampai total pembeli mencapai batas peringkat target. Tiap siklus:
+  baca papan live (batas target segar — bisa naik bila pemain lain
+  menyalip) → bayar misi cerita Agus bila uang cukup → beli upgrade
+  syarat level bila uang cukup (yang termurah, sisa uang dijaga >=
+  Rp50.000) → siklus harian biasa. Kabar hanya saat target tercapai
+  ("MASUK 100 BESAR!") atau mode berhenti. Berhenti otomatis: target
+  tercapai, **uang MINUS** (jaring pengaman — Penjaga Saldo seharusnya
+  mencegahnya; pelajaran insiden 24 Nov 2026: sim memotong biaya
+  harian walau uang habis — mode berhenti di hari minus pertama,
+  bukan lanjut berdarah), diusir, uang habis + rak kosong (macet), maks
+  300 siklus, bentrok, atau sesi habis. Mulai tidak lagi ditolak bila
+  uang minus — Penjaga Saldo memperbaikinya di siklus pertama.
+  Papan gagal dibaca → siklus dilewati (target tidak ditebak).
+  Bot TIDAK mengirim skor ke papan — game di HP yang mengirim saat
+  dibuka. **Satu otomatisasi saja**: menyalakan mode ini mematikan
+  siklus harian dan Mode Target Level, dan sebaliknya. Job
+  `kejar:<chat_id>`, state di tabel `mode_kejar`, dimuat ulang saat bot
+  start + disinkronkan tiap 10 menit.
 
 ## Fitur Fase 4 — Mini App dashboard
 
@@ -302,7 +341,9 @@ bot bila `MINIAPP_URL` diisi.
 285 tes (saat penyerahan Fase 4) + 113 tes Fase 5 + 7 tes proxy
 (live-run 24 Nov 2026) + 4 tes perbaikan jam (24 Nov 2026) + 23 tes Mode
 Target Level + 1 tes regresi routing tombol target (24 Nov 2026)
-= **433 tes**: Fase 1 (70) + Fase 2 (73) +
++ 23 tes Mode Kejar Papan (24 Nov 2026) + 19 tes Penjaga Saldo
+(24 Nov 2026)
+= **475 tes**: Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),

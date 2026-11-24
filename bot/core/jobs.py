@@ -159,6 +159,55 @@ def muat_semua_mode_target(scheduler: AsyncIOScheduler, app, store) -> int:
     return jumlah
 
 
+# -- Fase 3+: Mode Kejar Papan ----------------------------------------------
+
+def kejar_job_id(chat_id: int) -> str:
+    return f"kejar:{chat_id}"
+
+
+def atur_mode_kejar(scheduler: AsyncIOScheduler, app, chat_id: int) -> None:
+    """Buat/ganti job Mode Kejar Papan chat ini (tiap 5 menit, WIB).
+
+    Hapus eksplisit dulu (alasan sama seperti atur_laporan: APScheduler
+    3.11 replace_existing tidak mengganti bila scheduler belum jalan).
+    """
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    from . import kejar as kejar_mod
+
+    try:
+        scheduler.remove_job(kejar_job_id(chat_id))
+    except Exception:
+        pass
+    scheduler.add_job(
+        jalankan_mode_kejar,
+        IntervalTrigger(minutes=kejar_mod.INTERVAL_MENIT, timezone=WIB),
+        args=[app, int(chat_id)],
+        id=kejar_job_id(chat_id),
+        replace_existing=True,
+    )
+
+
+def hapus_mode_kejar(scheduler: AsyncIOScheduler, chat_id: int) -> None:
+    try:
+        scheduler.remove_job(kejar_job_id(chat_id))
+    except Exception:
+        pass
+
+
+def muat_semua_mode_kejar(scheduler: AsyncIOScheduler, app, store) -> int:
+    """Muat ulang semua Mode Kejar Papan aktif dari Store saat start."""
+    jumlah = 0
+    for row in store.all_mode_kejar():
+        try:
+            atur_mode_kejar(scheduler, app, int(row["chat_id"]))
+            jumlah += 1
+        except Exception:
+            log.exception("gagal memuat mode kejar chat %s",
+                          row.get("chat_id"))
+    return jumlah
+
+
 def _teks_pengingatan_login(app, chat_id: int, paket: dict) -> tuple[str | None, int | None]:
     """Teks pengingat klaim login harian (Pemula+), tanpa mengirim.
 
@@ -225,6 +274,14 @@ def _ringkas_siklus(hasil: dict) -> list[str]:
             f"dilayani {sim['dilayani']} · batal {sim['batal']}")
     if hasil.get("batas_terlampaui"):
         baris.append("Batas harian terlampaui — simulasi tidak diterapkan.")
+    jaga = [a for a in hasil["aksi"]
+            if a.get("aksi") == "jaga_saldo" and a.get("ok")]
+    if jaga:
+        total_jaga = sum(int(a.get("jumlah", 0)) for a in jaga)
+        baris.append(
+            f"Penjaga Saldo menambah {_format_rupiah(total_jaga)} supaya "
+            "uang tidak minus (uang ditambah dari ketiadaan, tercatat di "
+            "audit log).")
     beli = [a for a in hasil["aksi"] if a.get("aksi") == "beli_stok" and a.get("ok")]
     if beli:
         total = sum(int(a["biaya"]) for a in beli)
@@ -421,6 +478,9 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
         elif a.get("aksi") in ("beli_stok", "bayar_sewa", "cicil_sewa",
                                "bayar_zakat", "bayar_motor") and a.get("ok"):
             detail = _format_rupiah(a.get("dibayar", a.get("biaya", 0)))
+        elif a.get("aksi") == "jaga_saldo" and a.get("ok"):
+            detail = (f"+{_format_rupiah(a.get('jumlah', 0))} "
+                      f"(dari {_format_rupiah(a.get('dari', 0))})")
         store.log_audit(chat_id, str(a.get("aksi", "?")), detail)
 
     # Diusir (dari simulasi)? Berhenti total — kios sudah hilang.
@@ -471,8 +531,13 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
 
 
 async def _matikan_mode_target(app, chat_id: int, alasan: str,
-                               kabari: bool = True) -> None:
-    """Matikan Mode Target: hapus state + job, lalu kabari pengguna."""
+                               kabari: bool = True, info_jaga: int = 0) -> None:
+    """Matikan Mode Target: hapus state + job, lalu kabari pengguna.
+
+    ``info_jaga`` = total top-up Penjaga Saldo pada siklus terakhir (0
+    bila tidak ada) — disebutkan di pesan berhenti supaya pengguna tahu
+    uangnya ditambah.
+    """
     from . import target as target_mod
 
     store = app.bot_data["store"]
@@ -484,10 +549,15 @@ async def _matikan_mode_target(app, chat_id: int, alasan: str,
     store.log_audit(chat_id, "mode_target_berhenti", alasan)
     if not kabari:
         return
+    teks = (f"Mode Target Level berhenti. "
+            f"{target_mod.teks_berhenti(alasan)}")
+    if info_jaga > 0:
+        teks += (f"\nPenjaga Saldo menambah {_format_rupiah(info_jaga)} "
+                 "pada siklus terakhir.")
     try:
         await app.bot.send_message(
             chat_id=chat_id,
-            text=f"Mode Target Level berhenti. {target_mod.teks_berhenti(alasan)}",
+            text=teks,
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Lihat Status",
                                        callback_data="menu:status")]]
@@ -500,12 +570,14 @@ async def _matikan_mode_target(app, chat_id: int, alasan: str,
 async def jalankan_mode_target(app, chat_id: int) -> None:
     """Satu siklus Mode Target Level (Fase 3+), tiap 5 menit.
 
-    Urutan: ambil state terbaru -> cek berhenti -> satu siklus target
+    Urutan: ambil state terbaru -> Penjaga Saldo (perbaiki uang minus
+    sebelum cek berhenti) -> cek berhenti -> satu siklus target
     (bayar misi + beli upgrade syarat + siklus harian) -> unggah sekali.
     Diam pada siklus biasa (tidak spam); kabari hanya saat naik level,
     target tercapai, atau berhenti karena masalah. Bentrok/sesi habis ->
     mode dimatikan + pengguna diberi tahu; TIDAK mencoba lagi diam-diam.
     """
+    from . import auto as auto_mod
     from . import target as target_mod
     from ..tg.confirm import execute_upload
     from ..tg.status import fetch_latest_state
@@ -534,14 +606,21 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
         log.warning("mode target chat %s dilewati: %s", chat_id, exc)
         return
 
+    # Penjaga Saldo — perbaiki uang save SEBELUM cek berhenti: bila save
+    # minus (mis. -Rp30.000 dari insiden 24 Nov 2026), mode memperbaiki
+    # di siklus ini, bukan berhenti sebelum siklus pertama. Top-up baru
+    # dicatat di audit bila siklus ini berhasil diunggah (di bawah);
+    # bila upload gagal/bentrok, perbaikan dibuang bersama siklus.
+    slot_masuk, tambah_awal = auto_mod.jaga_saldo(state["slot"])
+
     # Sudah sampai target (mis. sir main sendiri dan naik level)?
-    alasan = target_mod.alasan_berhenti(state["slot"], target_tingkat,
+    alasan = target_mod.alasan_berhenti(slot_masuk, target_tingkat,
                                         int(mode["siklus"]))
     if alasan is not None:
         await _matikan_mode_target(app, chat_id, alasan)
         return
 
-    hasil = target_mod.satu_siklus_target(state["slot"], data, tugas_data,
+    hasil = target_mod.satu_siklus_target(slot_masuk, data, tugas_data,
                                           tier, batas)
     siklus_baru = store.tambah_siklus_target(chat_id)
 
@@ -568,27 +647,42 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
         log.warning("mode target chat %s gagal: %s", chat_id, teks)
         return
 
-    # Sukses: catat audit untuk aksi yang membelanjakan uang.
+    # Sukses: catat audit untuk aksi yang membelanjakan uang + penjaga
+    # saldo (awal siklus + yang terjadi di dalam siklus).
+    total_jaga = int(tambah_awal)
+    if tambah_awal > 0:
+        store.log_audit(chat_id, "jaga_saldo",
+                        f"+{_format_rupiah(tambah_awal)} (awal siklus)")
     for a in hasil["aksi"]:
         if a.get("aksi") in ("bayar_misi", "beli_upgrade") and a.get("ok"):
             store.log_audit(chat_id, str(a["aksi"]),
                             _format_rupiah(a.get("jumlah", 0)))
+        elif a.get("aksi") == "jaga_saldo" and a.get("ok"):
+            total_jaga += int(a.get("jumlah", 0))
+            store.log_audit(chat_id, "jaga_saldo",
+                            f"+{_format_rupiah(a.get('jumlah', 0))}")
 
     if hasil["slot"].get("diusir"):
-        await _matikan_mode_target(app, chat_id, "diusir")
+        await _matikan_mode_target(app, chat_id, "diusir",
+                                   info_jaga=total_jaga)
         return
     alasan = target_mod.alasan_berhenti(hasil["slot"], target_tingkat,
                                         siklus_baru)
     if alasan is not None:
-        await _matikan_mode_target(app, chat_id, alasan)
+        await _matikan_mode_target(app, chat_id, alasan,
+                                   info_jaga=total_jaga)
         return
     if hasil["naik"]:
         level_baru = int(hasil["tingkat_akhir"]) + 1
+        teks = (f"Mode Target: naik ke Level {level_baru} "
+                f"(target Level {target_tingkat}).")
+        if total_jaga > 0:
+            teks += (f"\nPenjaga Saldo menambah "
+                     f"{_format_rupiah(total_jaga)} pada siklus ini.")
         try:
             await app.bot.send_message(
                 chat_id=chat_id,
-                text=f"Mode Target: naik ke Level {level_baru} "
-                     f"(target Level {target_tingkat}).",
+                text=teks,
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Lihat Status",
                                            callback_data="menu:status")]]
@@ -596,6 +690,199 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
             )
         except Exception:
             log.exception("gagal mengabari naik level mode target %s", chat_id)
+
+
+async def _matikan_mode_kejar(app, chat_id: int, alasan: str,
+                              kabari: bool = True,
+                              teks_khusus: str | None = None,
+                              info_jaga: int = 0) -> None:
+    """Matikan Mode Kejar Papan: hapus state + job, lalu kabari pengguna.
+
+    ``teks_khusus`` menggantikan teks alasan generik (dipakai saat
+    target tercapai, supaya pesan menyebut peringkat + total pembeli).
+    ``info_jaga`` = total top-up Penjaga Saldo pada siklus terakhir (0
+    bila tidak ada) — disebutkan di pesan berhenti supaya pengguna tahu
+    uangnya ditambah.
+    """
+    from . import kejar as kejar_mod
+
+    store = app.bot_data["store"]
+    store.hapus_mode_kejar(chat_id)
+    scheduler = app.bot_data.get("scheduler")
+    if scheduler is not None:
+        hapus_mode_kejar(scheduler, chat_id)
+    store.log_audit(chat_id, "mode_kejar_berhenti", alasan)
+    if not kabari:
+        return
+    teks = teks_khusus or (
+        f"Mode Kejar Papan berhenti. {kejar_mod.teks_berhenti(alasan)}")
+    if info_jaga > 0:
+        teks += (f"\nPenjaga Saldo menambah {_format_rupiah(info_jaga)} "
+                 "pada siklus terakhir.")
+    try:
+        await app.bot.send_message(
+            chat_id=chat_id,
+            text=teks,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Lihat Status",
+                                       callback_data="menu:status")]]
+            ),
+        )
+    except Exception:
+        log.exception("gagal mengabari berhenti mode kejar ke %s", chat_id)
+
+
+async def jalankan_mode_kejar(app, chat_id: int) -> None:
+    """Satu siklus Mode Kejar Papan (Fase 3+), tiap 5 menit.
+
+    Urutan: ambil state terbaru -> Penjaga Saldo (perbaiki uang minus
+    sebelum cek berhenti) -> baca papan live (batas target segar)
+    -> cek berhenti -> satu siklus kejar (bayar misi + beli upgrade
+    syarat + siklus harian) -> unggah sekali. Diam pada siklus biasa
+    (tidak spam); kabari hanya saat target tercapai atau berhenti karena
+    masalah. Bentrok/sesi habis -> mode dimatikan + pengguna diberi tahu;
+    TIDAK mencoba lagi diam-diam. Papan gagal dibaca -> siklus dilewati
+    (target tidak ditebak), mode tetap nyala.
+    """
+    from . import auto as auto_mod
+    from . import kejar as kejar_mod
+    from ..tg.confirm import execute_upload
+    from ..tg.status import fetch_latest_state
+
+    store = app.bot_data["store"]
+    cloud = app.bot_data["cloud"]
+    data = app.bot_data["data"]
+    tugas_data = app.bot_data["tugas"]
+    session = store.get_user(chat_id)
+    mode = store.get_mode_kejar(chat_id)
+    if session is None or mode is None:
+        scheduler = app.bot_data.get("scheduler")
+        if scheduler is not None:
+            hapus_mode_kejar(scheduler, chat_id)
+        return
+    target_peringkat = int(mode["target_peringkat"])
+    tier = store.get_tier(chat_id)
+    batas = store.get_batas_harian(chat_id)
+    ctx = SimpleNamespace(bot_data=app.bot_data)
+    try:
+        state = await fetch_latest_state(ctx, chat_id)
+    except SessionExpired:
+        await _matikan_mode_kejar(app, chat_id, "sesi_habis")
+        return
+    except (NoCloudData, CloudError, save_mod.PackageError,
+            save_mod.SlotError) as exc:
+        log.warning("mode kejar chat %s dilewati: %s", chat_id, exc)
+        return
+
+    # Penjaga Saldo — perbaiki uang save SEBELUM cek berhenti (alasan
+    # yang sama seperti Mode Target: minus diperbaiki di siklus ini,
+    # bukan jadi alasan berhenti sebelum siklus pertama).
+    slot_masuk, tambah_awal = auto_mod.jaga_saldo(state["slot"])
+
+    # Baca papan live: batas target segar (baris peringkat target bisa
+    # naik bila pemain lain menyalip). Gagal -> lewati siklus ini.
+    id_papan = state["ringkasan"].get("id_papan") or ""
+    if not id_papan:
+        log.warning("mode kejar chat %s dilewati: tanpa id_papan", chat_id)
+        return
+    try:
+        data_papan = await cloud.fetch_papan("semua", id_papan)
+    except Exception as exc:
+        log.warning("mode kejar chat %s dilewati: papan gagal: %s",
+                    chat_id, exc)
+        return
+    target_pembeli = kejar_mod.target_pembeli_dari_papan(
+        data_papan, target_peringkat)
+    if target_pembeli is None:
+        log.warning("mode kejar chat %s dilewati: peringkat %d tidak ada "
+                    "di papan", chat_id, target_peringkat)
+        return
+
+    # Sudah masuk target (mis. sir main sendiri dan pembeli naik)?
+    alasan = kejar_mod.alasan_berhenti(slot_masuk, target_pembeli,
+                                       int(mode["siklus"]))
+    if alasan is not None:
+        if alasan == "target_tercapai":
+            total = int(slot_masuk.get("total_pembeli", 0))
+            await _matikan_mode_kejar(
+                app, chat_id, alasan,
+                teks_khusus=(
+                    f"Mode Kejar Papan: MASUK {target_peringkat} BESAR! "
+                    f"Total pembeli {total} sudah mencapai batas peringkat "
+                    f"{target_peringkat} ({target_pembeli}). Buka game "
+                    "sekali supaya skor terkirim ke papan."))
+        else:
+            await _matikan_mode_kejar(app, chat_id, alasan)
+        return
+
+    hasil = kejar_mod.satu_siklus_kejar(slot_masuk, data, tugas_data,
+                                        tier, batas)
+    # Hitungan siklus hanya untuk siklus yang DITERAPKAN (upload sukses):
+    # bila upload gagal, hari sim dibuang dan siklus tidak dihitung.
+    siklus_baru = int(mode["siklus"]) + 1
+
+    pending = {
+        "kind": "siklus",
+        "id_papan": state["ringkasan"]["id_papan"],
+        "p_data": None,
+        "versi_dasar": int(state["versi"]),
+        "slot_akhir": hasil["slot"],
+        "ringkasan": "Mode Kejar Papan: 1 hari diterapkan",
+    }
+    try:
+        teks, status = await execute_upload(ctx, chat_id, pending)
+    except Exception:
+        log.exception("mode kejar chat %s gagal saat upload", chat_id)
+        return
+    if status == "bentrok":
+        await _matikan_mode_kejar(app, chat_id, "bentrok")
+        return
+    if status == "sesi_habis":
+        await _matikan_mode_kejar(app, chat_id, "sesi_habis")
+        return
+    if status != "ok":
+        log.warning("mode kejar chat %s gagal: %s", chat_id, teks)
+        return
+    store.tambah_siklus_kejar(chat_id)
+
+    # Sukses: catat audit untuk aksi yang membelanjakan uang + penjaga
+    # saldo (awal siklus + yang terjadi di dalam siklus).
+    total_jaga = int(tambah_awal)
+    if tambah_awal > 0:
+        store.log_audit(chat_id, "jaga_saldo",
+                        f"+{_format_rupiah(tambah_awal)} (awal siklus)")
+    for a in hasil["aksi"]:
+        if a.get("aksi") in ("bayar_misi", "beli_upgrade") and a.get("ok"):
+            store.log_audit(chat_id, str(a["aksi"]),
+                            _format_rupiah(a.get("jumlah", 0)))
+        elif a.get("aksi") == "jaga_saldo" and a.get("ok"):
+            total_jaga += int(a.get("jumlah", 0))
+            store.log_audit(chat_id, "jaga_saldo",
+                            f"+{_format_rupiah(a.get('jumlah', 0))}")
+
+    if hasil["slot"].get("diusir"):
+        await _matikan_mode_kejar(app, chat_id, "diusir",
+                                  info_jaga=total_jaga)
+        return
+    alasan = kejar_mod.alasan_berhenti(hasil["slot"], target_pembeli,
+                                       siklus_baru)
+    if alasan is not None:
+        if alasan == "target_tercapai":
+            total = int(hasil["slot"].get("total_pembeli", 0))
+            teks = (f"Mode Kejar Papan: MASUK {target_peringkat} BESAR! "
+                    f"Total pembeli {total} sudah mencapai batas peringkat "
+                    f"{target_peringkat} ({target_pembeli}). Buka game "
+                    "sekali supaya skor terkirim ke papan.")
+            if total_jaga > 0:
+                teks += (f"\nPenjaga Saldo menambah "
+                         f"{_format_rupiah(total_jaga)} pada siklus ini.")
+            await _matikan_mode_kejar(app, chat_id, alasan,
+                                      teks_khusus=teks)
+        else:
+            await _matikan_mode_kejar(app, chat_id, alasan,
+                                      info_jaga=total_jaga)
+        return
+    # Siklus biasa: diam (tidak spam).
 
 
 def muat_semua_jadwal(scheduler: AsyncIOScheduler, app, store) -> int:
@@ -647,10 +934,11 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
     tanpa restart bot. Idempotent: job yang jamnya sudah benar dibiarkan
     (tidak dihapus-dibuat ulang, supaya tidak ada jadwal yang terlewat
     bila sinkronisasi berjalan tepat di menit eksekusi).
-    Mengembalikan {"laporan": n, "otomatis": n, "target": n, "dihapus": n} —
-    jumlah job yang DIUBAH (bukan yang sudah benar).
+    Mengembalikan {"laporan": n, "otomatis": n, "target": n, "kejar": n,
+    "dihapus": n} — jumlah job yang DIUBAH (bukan yang sudah benar).
     """
-    hasil = {"laporan": 0, "otomatis": 0, "target": 0, "dihapus": 0}
+    hasil = {"laporan": 0, "otomatis": 0, "target": 0, "kejar": 0,
+             "dihapus": 0}
     ingin_laporan = {
         int(r["chat_id"]): int(r["jam"])
         for r in store.all_jadwal() if r.get("aktif")
@@ -688,6 +976,17 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
             hasil["target"] += 1
         except Exception:
             log.exception("gagal menyinkronkan mode target chat %s", chat_id)
+    ingin_kejar = {
+        int(r["chat_id"]) for r in store.all_mode_kejar()
+    }
+    for chat_id in ingin_kejar:
+        if scheduler.get_job(kejar_job_id(chat_id)) is not None:
+            continue  # Sudah benar — dibiarkan.
+        try:
+            atur_mode_kejar(scheduler, app, chat_id)
+            hasil["kejar"] += 1
+        except Exception:
+            log.exception("gagal menyinkronkan mode kejar chat %s", chat_id)
     for job in list(scheduler.get_jobs()):
         jid = str(job.id or "")
         try:
@@ -702,6 +1001,9 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
             hasil["dihapus"] += 1
         elif jid.startswith("target:") and cid not in ingin_target:
             hapus_mode_target(scheduler, cid)
+            hasil["dihapus"] += 1
+        elif jid.startswith("kejar:") and cid not in ingin_kejar:
+            hapus_mode_kejar(scheduler, cid)
             hasil["dihapus"] += 1
     return hasil
 

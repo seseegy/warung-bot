@@ -4,7 +4,7 @@ Perintah (tanpa parameter; semua pilihan lewat tombol inline):
 /tier, /otomatis, /laporan, /bandingkan.
 
 Callback yang ditangani di sini: "tier:*", "otomatis:*", "target:*",
-"login:*", "laporan:*" — dipanggil dari handlers.on_callback.
+"kejar:*", "login:*", "laporan:*" — dipanggil dari handlers.on_callback.
 
 Penegakan tier di KODE (bukan cuma di UI): /bandingkan butuh
 Profesional; siklus otomatis hanya menjalankan aksi sesuai tier yang
@@ -107,12 +107,15 @@ def _panel_otomatis(store, chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
     otomatis = store.get_otomatis(chat_id)
     jam = store.get_jam_otomatis(chat_id)
     mode = store.get_mode_target(chat_id)
+    kejar = store.get_mode_kejar(chat_id)
     teks = (
         f"Otomatisasi: {'NYALA' if otomatis else 'MATI'}\n"
         f"Tier: {tier} ({tiers_mod.TIER_NAMA[tier]})\n"
         f"Jam siklus harian: {jam:02d}.00 WIB\n"
         f"Mode Target Level: "
-        f"{'NYALA — target Level ' + str(mode['target_tingkat']) + ' (siklus ' + str(mode['siklus']) + ')' if mode else 'MATI'}\n\n"
+        f"{'NYALA — target Level ' + str(mode['target_tingkat']) + ' (siklus ' + str(mode['siklus']) + ')' if mode else 'MATI'}\n"
+        f"Mode Kejar Papan: "
+        f"{'NYALA — target peringkat ' + str(kejar['target_peringkat']) + ' (batas ' + str(kejar['target_pembeli']) + ' pembeli, siklus ' + str(kejar['siklus']) + ')' if kejar else 'MATI'}\n\n"
         "Bila nyala, bot menjalankan siklus tiap hari pada jam itu: "
         "ambil simpanan terbaru, jalankan aksi sesuai tier, unggah sekali. "
         "Game harus TERTUTUP saat siklus jalan — bila game terbuka dan "
@@ -129,9 +132,28 @@ def _panel_otomatis(store, chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
     else:
         baris.append([InlineKeyboardButton(
             "Mode Target Level", callback_data="target:pilih")])
+    if kejar:
+        baris.append([InlineKeyboardButton(
+            "Berhentikan Mode Kejar", callback_data="kejar:berhenti")])
+    else:
+        baris.append([InlineKeyboardButton(
+            "Kejar Papan", callback_data="kejar:pilih")])
     baris.append([InlineKeyboardButton("Kembali ke Menu",
                                        callback_data="menu:root")])
     return teks, InlineKeyboardMarkup(baris)
+
+
+def _keyboard_pilih_peringkat() -> InlineKeyboardMarkup:
+    """Tombol pilih peringkat target Mode Kejar (25/50/100, §15)."""
+    from ..core import kejar as kejar_mod
+
+    baris = [[
+        InlineKeyboardButton(f"Top {n}",
+                             callback_data=f"kejar:konfirmasi:{n}")
+        for n in kejar_mod.PERINGKAT_PILIHAN
+    ]]
+    baris.append([InlineKeyboardButton("Batal", callback_data="kejar:batal")])
+    return InlineKeyboardMarkup(baris)
 
 
 def _keyboard_pilih_level() -> InlineKeyboardMarkup:
@@ -419,8 +441,20 @@ async def _tangani_target(query, context, chat_id: int, data: str) -> bool:
                 reply_markup=_keyboard_pilih_level(),
             )
             return True
+        # Penjaga Saldo: bila uang kurang dari minimum, siklus pertama
+        # menambah otomatis — sebutkan di konfirmasi supaya pengguna tahu.
+        _, tambah_jaga = auto_mod.jaga_saldo(state["slot"])
+        baris_jaga = ""
+        if tambah_jaga > 0:
+            baris_jaga = (
+                f"\nPenjaga Saldo: uangmu sekarang "
+                f"{format_rupiah(int(state['slot'].get('uang', 0)))} — "
+                f"akan ditambah {format_rupiah(tambah_jaga)} menjadi "
+                f"{format_rupiah(auto_mod.CADANGAN_UANG_MIN)} pada siklus "
+                "pertama.\n")
         await query.edit_message_text(
-            f"Mode Target Level {target} (sekarang Level {level_sekarang}).\n\n"
+            f"Mode Target Level {target} (sekarang Level {level_sekarang})."
+            f"{baris_jaga}\n"
             "Bot akan jalan terus tiap "
             f"{target_mod.INTERVAL_MENIT} menit, 1 hari game per siklus:\n"
             "- simulasi jualan + restock + isi tugas (seperti siklus harian)\n"
@@ -428,9 +462,9 @@ async def _tangani_target(query, context, chat_id: int, data: str) -> bool:
             "sebelum naik level)\n"
             "- BELI upgrade syarat level bila uang cukup (yang termurah)\n\n"
             "Siklus harian dimatikan selama mode ini nyala (satu otomatisasi "
-            "saja). Mode berhenti sendiri saat target tercapai, bila uang "
-            "habis dan rak kosong, bila diusir, atau bila game mengunggah "
-            "di tengah jalan (bentrok).",
+            "saja). Mode berhenti sendiri saat target tercapai, bila diusir, "
+            "atau bila game mengunggah di tengah jalan (bentrok). Penjaga "
+            "Saldo memastikan uang tidak pernah minus.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(
                     "Ya, mulai", callback_data=f"target:mulai:{target}")],
@@ -470,22 +504,301 @@ async def _tangani_target(query, context, chat_id: int, data: str) -> bool:
                 reply_markup=_keyboard_pilih_level(),
             )
             return True
-        # Satu otomatisasi saja: matikan siklus harian bila nyala.
+        # Penjaga Saldo: hitung top-up siklus pertama (uang minus TIDAK
+        # lagi jadi alasan menolak mulai) — dicatat di audit sebagai
+        # rencana, diterapkan pada siklus pertama.
+        _, tambah_jaga = auto_mod.jaga_saldo(state["slot"])
+        if tambah_jaga > 0:
+            store.log_audit(
+                chat_id, "jaga_saldo",
+                f"+{format_rupiah(tambah_jaga)} (rencana saat mulai mode "
+                "target — diterapkan pada siklus pertama)")
+        # Satu otomatisasi saja: matikan siklus harian + Mode Kejar bila nyala.
         if store.get_otomatis(chat_id):
             store.set_otomatis(chat_id, False)
             if scheduler is not None:
                 jobs_mod.hapus_siklus(scheduler, chat_id)
+        if store.get_mode_kejar(chat_id) is not None:
+            store.hapus_mode_kejar(chat_id)
+            if scheduler is not None:
+                jobs_mod.hapus_mode_kejar(scheduler, chat_id)
+            store.log_audit(chat_id, "mode_kejar_berhenti",
+                            "diganti mode target")
         store.set_mode_target(chat_id, target)
         if scheduler is not None:
             jobs_mod.atur_mode_target(scheduler, context.application, chat_id)
         store.log_audit(chat_id, "mode_target_mulai",
                         f"Level {level_sekarang} -> {target}")
-        await query.edit_message_text(
+        teks_mulai = (
             f"Mode Target Level {target} DINYALAKAN "
             f"(dari Level {level_sekarang}).\n"
             f"Bot jalan tiap {target_mod.INTERVAL_MENIT} menit, 1 hari game "
             "per siklus. Kabar hanya saat naik level atau mode berhenti.\n"
-            "Game harus TERTUTUP selama mode nyala.",
+            "Game harus TERTUTUP selama mode nyala.")
+        if tambah_jaga > 0:
+            teks_mulai += (
+                f"\nPenjaga Saldo: uangmu "
+                f"{format_rupiah(int(state['slot'].get('uang', 0)))} akan "
+                f"ditambah {format_rupiah(tambah_jaga)} menjadi "
+                f"{format_rupiah(auto_mod.CADANGAN_UANG_MIN)} pada siklus "
+                "pertama.")
+        await query.edit_message_text(
+            teks_mulai,
+            reply_markup=kb.back_to_menu(),
+        )
+        return True
+    return True
+
+
+async def _tangani_kejar(query, context, chat_id: int, data: str) -> bool:
+    """Callback Mode Kejar Papan: pilih/konfirmasi/mulai/berhenti.
+
+    Alur (tanpa parameter perintah, §15): pilih peringkat -> konfirmasi
+    (total pembeli sekarang vs batas peringkat itu, dibaca LIVE dari
+    papan) -> mulai. Mulai memvalidasi ulang tier + batas papan segar
+    terhadap save terbaru — tombol lama yang kedaluwarsa ditolak, bukan
+    dijalankan buta. Uang minus TIDAK ditolak: Penjaga Saldo menambah
+    otomatis ke Rp50.000 pada siklus pertama (jumlahnya disebutkan di
+    pesan konfirmasi/mulai dan dicatat di audit).
+    """
+    from ..core import kejar as kejar_mod
+    from ..core import tiers as tiers_core
+
+    store = context.bot_data["store"]
+    scheduler = context.bot_data.get("scheduler")
+
+    if data == "kejar:pilih":
+        try:
+            tiers_core.require_tier(store.get_tier(chat_id), "mode_kejar")
+        except tiers_core.TierError as exc:
+            await query.edit_message_text(str(exc),
+                                          reply_markup=kb.back_to_menu())
+            return True
+        mode = store.get_mode_kejar(chat_id)
+        if mode is not None:
+            await query.edit_message_text(
+                "Mode Kejar Papan sudah nyala "
+                f"(target peringkat {mode['target_peringkat']}). Berhentikan "
+                "dulu bila mau ganti target.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        await query.edit_message_text(
+            "Mode Kejar Papan — pilih peringkat tujuan. Bot jalan tiap "
+            f"{kejar_mod.INTERVAL_MENIT} menit (1 hari game per siklus) "
+            "sampai total pembeli mencapai batas peringkat itu.",
+            reply_markup=_keyboard_pilih_peringkat(),
+        )
+        return True
+
+    if data == "kejar:batal":
+        teks, markup = _panel_otomatis(store, chat_id)
+        await query.edit_message_text(teks, reply_markup=markup)
+        return True
+
+    if data == "kejar:berhenti":
+        if store.get_mode_kejar(chat_id) is None:
+            await query.edit_message_text(
+                "Mode Kejar Papan sedang tidak nyala.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        store.hapus_mode_kejar(chat_id)
+        if scheduler is not None:
+            jobs_mod.hapus_mode_kejar(scheduler, chat_id)
+        store.log_audit(chat_id, "mode_kejar_berhenti", "manual")
+        await query.edit_message_text(
+            "Mode Kejar Papan DIMATIKAN.",
+            reply_markup=kb.back_to_menu(),
+        )
+        return True
+
+    bagian = data.split(":")
+    if len(bagian) != 3 or not bagian[2].isdigit():
+        return True
+    target = int(bagian[2])
+    if target not in kejar_mod.PERINGKAT_PILIHAN:
+        return True
+
+    async def _batas_papan(state: dict) -> int | None:
+        """Batas total pembeli peringkat target, dibaca LIVE dari papan.
+
+        None bila papan tidak bisa dibaca atau peringkat tidak ada di
+        daftar — pemanggil harus menolak, bukan menebak.
+        """
+        cloud = context.bot_data.get("cloud")
+        id_papan = (state.get("ringkasan") or {}).get("id_papan") or ""
+        if cloud is None or not id_papan:
+            return None
+        try:
+            data_papan = await cloud.fetch_papan("semua", id_papan)
+        except Exception:
+            return None
+        return kejar_mod.target_pembeli_dari_papan(data_papan, target)
+
+    if bagian[1] == "konfirmasi":
+        try:
+            tiers_core.require_tier(store.get_tier(chat_id), "mode_kejar")
+        except tiers_core.TierError as exc:
+            await query.edit_message_text(str(exc),
+                                          reply_markup=kb.back_to_menu())
+            return True
+        try:
+            state = await fetch_latest_state(context, chat_id)
+        except NotLinked:
+            await query.edit_message_text("Belum ada akun tertaut.",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        except SessionExpired:
+            await query.edit_message_text(
+                "Sesi login habis. Kirim ulang akun.json dengan /link.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        except (NoCloudData, CloudError, save_mod.PackageError,
+                save_mod.SlotError) as exc:
+            await query.edit_message_text(f"Tidak bisa mengambil status: {exc}",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        # Penjaga Saldo: uang minus TIDAK lagi jadi alasan menolak —
+        # siklus pertama menambah otomatis ke Rp50.000. Sebutkan di
+        # konfirmasi supaya pengguna tahu.
+        _, tambah_jaga = auto_mod.jaga_saldo(state["slot"])
+        baris_jaga = ""
+        if tambah_jaga > 0:
+            baris_jaga = (
+                f"\nPenjaga Saldo: uangmu sekarang "
+                f"{format_rupiah(int(state['slot'].get('uang', 0)))} — "
+                f"akan ditambah {format_rupiah(tambah_jaga)} menjadi "
+                f"{format_rupiah(auto_mod.CADANGAN_UANG_MIN)} pada siklus "
+                "pertama.\n")
+        total = int(state["slot"].get("total_pembeli", 0))
+        batas = await _batas_papan(state)
+        if batas is None:
+            await query.edit_message_text(
+                "Tidak bisa membaca papan peringkat sekarang. Coba lagi "
+                "nanti.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        if total >= batas:
+            await query.edit_message_text(
+                f"Kamu sudah masuk {target} besar "
+                f"({total} pembeli, batas {batas}). Pilih peringkat yang "
+                "lebih tinggi.",
+                reply_markup=_keyboard_pilih_peringkat(),
+            )
+            return True
+        await query.edit_message_text(
+            f"Mode Kejar Papan — target peringkat {target}.\n\n"
+            f"Total pembelimu sekarang: {total}\n"
+            f"Batas peringkat {target}: {batas} pembeli\n"
+            f"Kurang: {batas - total} pembeli lagi."
+            f"{baris_jaga}\n"
+            "Bot akan jalan terus tiap "
+            f"{kejar_mod.INTERVAL_MENIT} menit, 1 hari game per siklus:\n"
+            "- simulasi jualan + restock + isi tugas (seperti siklus harian)\n"
+            "- BAYAR misi cerita Agus bila uang cukup (misi harus lunas "
+            "sebelum naik level)\n"
+            "- BELI upgrade syarat level bila uang cukup (yang termurah)\n\n"
+            "Batas peringkat dibaca ulang dari papan tiap siklus (bisa "
+            "naik bila pemain lain menyalip). Siklus harian dan Mode "
+            "Target dimatikan selama mode ini nyala (satu otomatisasi "
+            "saja). Mode berhenti sendiri saat target tercapai, bila "
+            "diusir, atau bila game mengunggah di tengah jalan (bentrok). "
+            "Penjaga Saldo memastikan uang tidak pernah minus. Bot TIDAK "
+            "mengirim skor ke papan — game di HP yang mengirim saat dibuka.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "Ya, mulai", callback_data=f"kejar:mulai:{target}")],
+                [InlineKeyboardButton("Batal", callback_data="kejar:batal")],
+            ]),
+        )
+        return True
+
+    if bagian[1] == "mulai":
+        try:
+            tiers_core.require_tier(store.get_tier(chat_id), "mode_kejar")
+        except tiers_core.TierError as exc:
+            await query.edit_message_text(str(exc),
+                                          reply_markup=kb.back_to_menu())
+            return True
+        try:
+            state = await fetch_latest_state(context, chat_id)
+        except NotLinked:
+            await query.edit_message_text("Belum ada akun tertaut.",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        except SessionExpired:
+            await query.edit_message_text(
+                "Sesi login habis. Kirim ulang akun.json dengan /link.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        except (NoCloudData, CloudError, save_mod.PackageError,
+                save_mod.SlotError) as exc:
+            await query.edit_message_text(f"Tidak bisa mengambil status: {exc}",
+                                          reply_markup=kb.back_to_menu())
+            return True
+        # Penjaga Saldo: hitung top-up siklus pertama (uang minus TIDAK
+        # lagi jadi alasan menolak mulai) — dicatat di audit sebagai
+        # rencana, diterapkan pada siklus pertama.
+        _, tambah_jaga = auto_mod.jaga_saldo(state["slot"])
+        if tambah_jaga > 0:
+            store.log_audit(
+                chat_id, "jaga_saldo",
+                f"+{format_rupiah(tambah_jaga)} (rencana saat mulai mode "
+                "kejar — diterapkan pada siklus pertama)")
+        total = int(state["slot"].get("total_pembeli", 0))
+        batas = await _batas_papan(state)
+        if batas is None:
+            await query.edit_message_text(
+                "Tidak bisa membaca papan peringkat sekarang. Coba lagi "
+                "nanti.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        if total >= batas:
+            await query.edit_message_text(
+                f"Kamu sudah masuk {target} besar "
+                f"({total} pembeli, batas {batas}). Pilih peringkat yang "
+                "lebih tinggi.",
+                reply_markup=_keyboard_pilih_peringkat(),
+            )
+            return True
+        # Satu otomatisasi saja: matikan siklus harian + Mode Target.
+        if store.get_otomatis(chat_id):
+            store.set_otomatis(chat_id, False)
+            if scheduler is not None:
+                jobs_mod.hapus_siklus(scheduler, chat_id)
+        if store.get_mode_target(chat_id) is not None:
+            store.hapus_mode_target(chat_id)
+            if scheduler is not None:
+                jobs_mod.hapus_mode_target(scheduler, chat_id)
+            store.log_audit(chat_id, "mode_target_berhenti",
+                            "diganti mode kejar")
+        store.set_mode_kejar(chat_id, target, batas)
+        if scheduler is not None:
+            jobs_mod.atur_mode_kejar(scheduler, context.application, chat_id)
+        store.log_audit(chat_id, "mode_kejar_mulai",
+                        f"peringkat {target} (butuh {batas} pembeli)")
+        teks_mulai = (
+            f"Mode Kejar Papan DINYALAKAN (target peringkat {target}).\n"
+            f"Total pembeli sekarang {total}, batas {batas} "
+            f"(kurang {batas - total}).\n"
+            f"Bot jalan tiap {kejar_mod.INTERVAL_MENIT} menit, 1 hari game "
+            "per siklus. Kabar hanya saat target tercapai atau mode "
+            "berhenti.\n"
+            "Game harus TERTUTUP selama mode nyala.")
+        if tambah_jaga > 0:
+            teks_mulai += (
+                f"\nPenjaga Saldo: uangmu "
+                f"{format_rupiah(int(state['slot'].get('uang', 0)))} akan "
+                f"ditambah {format_rupiah(tambah_jaga)} menjadi "
+                f"{format_rupiah(auto_mod.CADANGAN_UANG_MIN)} pada siklus "
+                "pertama.")
+        await query.edit_message_text(
+            teks_mulai,
             reply_markup=kb.back_to_menu(),
         )
         return True
@@ -565,13 +878,21 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
 
     if data.startswith("otomatis:"):
         if data == "otomatis:nyala":
-            # Satu otomatisasi saja yang jalan: Mode Target dimatikan.
+            # Satu otomatisasi saja yang jalan: Mode Target dan Mode
+            # Kejar dimatikan.
             if store.get_mode_target(chat_id) is not None:
                 store.hapus_mode_target(chat_id)
                 scheduler = context.bot_data.get("scheduler")
                 if scheduler is not None:
                     jobs_mod.hapus_mode_target(scheduler, chat_id)
                 store.log_audit(chat_id, "mode_target_berhenti",
+                                "diganti siklus harian")
+            if store.get_mode_kejar(chat_id) is not None:
+                store.hapus_mode_kejar(chat_id)
+                scheduler = context.bot_data.get("scheduler")
+                if scheduler is not None:
+                    jobs_mod.hapus_mode_kejar(scheduler, chat_id)
+                store.log_audit(chat_id, "mode_kejar_berhenti",
                                 "diganti siklus harian")
             store.set_otomatis(chat_id, True)
             scheduler = context.bot_data.get("scheduler")
@@ -601,6 +922,9 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
 
     if data.startswith("target:"):
         return await _tangani_target(query, context, chat_id, data)
+
+    if data.startswith("kejar:"):
+        return await _tangani_kejar(query, context, chat_id, data)
 
     if data.startswith("login:"):
         if data == "login:lewat":

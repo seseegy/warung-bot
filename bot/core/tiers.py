@@ -46,7 +46,8 @@ TIER_DESKRIPSI = {
         "Semua Standar, ditambah: harga dinamis per barang (pilih hasil "
         "terbaik dari 3 simulasi), rencana naik level, auto-bayar "
         "sewa/zakat/cicilan motor, lacak posisi peringkat, Mode Target "
-        "Level (kerja nonstop sampai level tujuan)."
+        "Level (kerja nonstop sampai level tujuan), Mode Kejar Papan "
+        "(kerja nonstop sampai masuk peringkat target)."
     ),
 }
 
@@ -66,6 +67,9 @@ FITUR_MIN_TIER = {
     # Mode Target Level: jalan tiap 5 menit sampai level tujuan (butuh
     # harga dinamis + auto-bayar + bayar misi + beli upgrade syarat).
     "mode_target": TIER_PROFESIONAL,
+    # Mode Kejar Papan: jalan tiap 5 menit sampai total pembeli masuk
+    # peringkat target (baca papan live tiap siklus, tanpa kirim skor).
+    "mode_kejar": TIER_PROFESIONAL,
     # Fase 5: aksi cepat mengubah save langsung (jual/beli/ngopi/tutup).
     "aksi_cepat": TIER_STANDAR,
 }
@@ -83,6 +87,7 @@ FITUR_NAMA = {
     "auto_bayar": "auto-bayar sewa/zakat/cicilan",
     "peringkat": "lacak peringkat",
     "mode_target": "mode target level",
+    "mode_kejar": "mode kejar papan",
     "aksi_cepat": "aksi cepat (jual/beli/ngopi/tutup)",
 }
 

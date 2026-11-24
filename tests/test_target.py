@@ -115,6 +115,12 @@ def test_alasan_berhenti(game_data):
     assert target_mod.alasan_berhenti(slot, 6, 0) == "macet"
     slot = make_rich_slot()
     assert target_mod.alasan_berhenti(slot, 6, 300) == "maks_siklus"
+    # Uang minus: berhenti (pelajaran insiden -Rp30.000, 24 Nov 2026) —
+    # mengalahkan "macet" bila rak juga kosong.
+    slot = make_rich_slot(uang=-30000)
+    assert target_mod.alasan_berhenti(slot, 6, 0) == "uang_minus"
+    slot = make_rich_slot(uang=-1, stok={})
+    assert target_mod.alasan_berhenti(slot, 6, 0) == "uang_minus"
 
 
 # -- store --------------------------------------------------------------------
@@ -240,6 +246,49 @@ async def test_job_mode_target_berhenti_saat_target_tercapai(
     assert "Target tercapai" in teks
 
 
+async def test_job_mode_target_uang_minus_diperbaiki_penjaga_saldo(
+        store, tugas_data, game_data, monkeypatch, rich_slot):
+    """Penjaga Saldo (24 Nov 2026): save minus TIDAK lagi menghentikan
+    Mode Target sebelum siklus pertama — penjaga menambah ke Rp50.000,
+    siklus jalan, mode tetap nyala. Alasan berhenti ``uang_minus`` tetap
+    ada sebagai jaring pengaman, tapi tidak terpicu di sini."""
+    _link_target(store)
+    bot_mock = SimpleNamespace(send_message=AsyncMock())
+    app = _fake_app(store, tugas_data, game_data, bot_mock)
+    slot = copy.deepcopy(rich_slot)
+    slot["uang"] = -30000
+    slot["tingkat"] = 1
+    slot["upgrade"] = []
+    slot["misi_status"] = ""
+    slot["progres"] = {"pelanggan": 0, "barang": 0, "omzet": 0, "khusus": 0}
+    state = {"slot": slot,
+             "ringkasan": {"nama": "W", "level": 2, "hari": 1,
+                           "uang": -30000, "id_papan": "id-x"},
+             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+    diunggah = {}
+
+    async def _fetch(context, chat_id):
+        return state
+
+    async def _upload(context, chat_id, pending):
+        diunggah.update(pending["slot_akhir"])
+        return "Mode Target diunggah (simpanan online v2).", "ok"
+
+    monkeypatch.setattr("bot.tg.status.fetch_latest_state", _fetch)
+    monkeypatch.setattr("bot.tg.confirm.execute_upload", _upload)
+    await jobs_mod.jalankan_mode_target(app, 123)
+    # Mode tetap nyala, siklus terhitung, tidak ada pesan berhenti.
+    mode = store.get_mode_target(123)
+    assert mode is not None and mode["siklus"] == 1
+    bot_mock.send_message.assert_not_awaited()
+    # Save yang di-upload sudah diperbaiki penjaga.
+    assert diunggah["uang"] >= 50000
+    audit = [e for e in store.get_audit(123, 0)
+             if e["aksi"] == "jaga_saldo"]
+    assert audit, "top-up harus dicatat di audit log"
+    assert "+Rp80.000" in audit[0]["detail"]
+
+
 async def test_job_mode_target_bentrok_mematikan(
         store, tugas_data, game_data, monkeypatch, rich_slot):
     _link_target(store)
@@ -349,6 +398,68 @@ async def test_target_mulai_menyalakan(
     finally:
         if scheduler.running:
             scheduler.shutdown(wait=False)
+
+
+async def test_target_mulai_uang_minus_diperbaiki_penjaga_saldo(
+        game_data, store, monkeypatch, rich_slot):
+    """Penjaga Saldo (24 Nov 2026): mulai TIDAK ditolak bila uang minus
+    — mode menyala, pesan menyebut top-up siklus pertama, dan rencana
+    top-up tercatat di audit."""
+    _link(store, tier=3)
+    scheduler = jobs_mod.build_scheduler()
+    try:
+        slot = copy.deepcopy(rich_slot)
+        slot["uang"] = -30000
+
+        async def _fetch(context, chat_id):
+            return {"slot": slot,
+                    "ringkasan": {"nama": "W", "level": 1, "hari": 1,
+                                  "uang": -30000, "id_papan": "id-x"},
+                    "versi": 1, "paket": {}}
+
+        monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
+        query = _fake_query("target:mulai:6")
+        ctx = _fake_context(game_data, store, scheduler=scheduler)
+        await tiers_tg.on_callback_tier(None, ctx, query, "target:mulai:6")
+        teks = query.edit_message_text.await_args.args[0]
+        assert "DINYALAKAN" in teks
+        assert "Penjaga Saldo" in teks
+        assert "Rp80.000" in teks  # -30.000 -> 50.000
+        assert store.get_mode_target(123) is not None
+        audit = [e for e in store.get_audit(123, 0)
+                 if e["aksi"] == "jaga_saldo"]
+        assert audit, "rencana top-up harus dicatat di audit"
+        assert "+Rp80.000" in audit[0]["detail"]
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+async def test_target_konfirmasi_tampilkan_penjaga_saldo(
+        game_data, store, monkeypatch, rich_slot):
+    """Penjaga Saldo (24 Nov 2026): konfirmasi Mode Target menyebut
+    top-up bila uang di bawah minimum."""
+    _link(store, tier=3)
+    slot = copy.deepcopy(rich_slot)
+    slot["uang"] = -30000
+
+    async def _fetch(context, chat_id):
+        return {"slot": slot,
+                "ringkasan": {"nama": "W", "level": 1, "hari": 1,
+                              "uang": -30000, "id_papan": "id-x"},
+                "versi": 1, "paket": {}}
+
+    monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
+    query = _fake_query("target:konfirmasi:6")
+    await tiers_tg.on_callback_tier(
+        None, _fake_context(game_data, store), query, "target:konfirmasi:6")
+    teks = query.edit_message_text.await_args.args[0]
+    assert "Penjaga Saldo" in teks
+    assert "Rp80.000" in teks
+    markup = query.edit_message_text.await_args.kwargs["reply_markup"]
+    data = [t.callback_data for baris in markup.inline_keyboard
+            for t in baris]
+    assert "target:mulai:6" in data
 
 
 async def test_target_berhenti(game_data, store):

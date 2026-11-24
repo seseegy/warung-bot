@@ -572,6 +572,42 @@ def cek_batas_harian(uang_awal: int, uang_akhir: int, batas: int) -> dict:
     return {"melewati": selisih > int(batas), "selisih": selisih}
 
 
+# -- penjaga saldo ------------------------------------------------------------
+
+def jaga_saldo(slot: dict, minimum: int = CADANGAN_UANG_MIN) -> tuple[dict, int]:
+    """Penjaga Saldo: uang tidak boleh di bawah ``minimum`` (Rp50.000).
+
+    Bila ``uang < minimum``, set ``uang = minimum`` dan kembalikan jumlah
+    yang ditambahkan; bila sudah cukup, kembalikan 0 dan slot tidak
+    berubah. Bila saat itu ``hari_minus > 0`` dan warung belum diusir,
+    ``hari_minus`` direset ke 0 dan ``bangkrut`` dibersihkan — meniru
+    rumus game (``tutup_hari()``, game_state.gd:6723-6738): bangkrut =
+    hari_minus >= BATAS_HARI_MINUS (casual 3, hard 1) ATAU diusir; dengan
+    hari_minus = 0 dan tidak diusir, bangkrut pasti False. Bila warung
+    sudah diusir, jejak minus TIDAK disentuh (warung sudah hilang,
+    penjaga tidak bisa mengembalikannya). Field lain tidak disentuh.
+    Fungsi murni — slot awal TIDAK diubah.
+
+    JUJUR: uang ini ditambahkan dari ketiadaan atas perintah pengguna
+    (24 Nov 2026: "bot tidak boleh pernah minus dan tidak boleh pernah
+    bangkrut"), BUKAN dari permainan. Setiap top-up dicatat di audit log
+    (aksi "jaga_saldo") supaya bisa dilacak.
+    """
+    s = copy.deepcopy(slot)
+    try:
+        uang = int(s.get("uang", 0) or 0)
+    except (TypeError, ValueError):
+        uang = 0
+    if uang >= int(minimum):
+        return s, 0
+    tambah = int(minimum) - uang
+    s["uang"] = int(minimum)
+    if not bool(s.get("diusir")) and int(s.get("hari_minus", 0) or 0) > 0:
+        s["hari_minus"] = 0
+        s["bangkrut"] = False
+    return s, tambah
+
+
 # -- siklus harian (murni — tanpa Telegram/cloud) ---------------------------
 
 def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
@@ -579,6 +615,8 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
                     seed: int | None = None) -> dict:
     """Satu siklus otomatis harian (murni). Urutan:
 
+    0. Penjaga Saldo — perbaiki minus yang sudah ada di save SEBELUM
+       langkah lain (aksi "jaga_saldo" bila ada top-up).
     1. Harga ikut pasar (Standar+) lalu harga dinamis (Profesional).
     2. Auto-beli stok (Standar+) — SEBELUM simulasi supaya ada barang
        untuk dijual hari ini.
@@ -589,6 +627,9 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
        semua syarat sudah terpenuhi.
     5. Auto-bayar (Profesional): sewa (hari sewa / cicil 3 hari sebelum
        jatuh tempo), zakat (hari 81-84), cicilan motor (tempo <= 3 hari).
+    6. Penjaga Saldo — pastikan save yang di-upload tidak pernah minus:
+       sim memotong biaya harian walau uang habis (seperti game asli,
+       ``tutup_hari()``), jadi tanpa ini uang bisa berakhir minus.
     Mengembalikan {"slot": slot_akhir, "aksi": [...], "sim": {...}|None,
     "uang_awal": int, "uang_akhir": int, "batas_terlampaui": bool}.
     Slot awal TIDAK diubah.
@@ -598,6 +639,12 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
     uang_awal = int(slot_awal.get("uang", 0))
     slot = copy.deepcopy(slot_awal)
     aksi: list[dict] = []
+
+    # 0. Penjaga Saldo (awal): perbaiki minus yang sudah ada di save.
+    slot, tambah = jaga_saldo(slot)
+    if tambah > 0:
+        aksi.append({"aksi": "jaga_saldo", "ok": True, "jumlah": tambah,
+                     "dari": uang_awal, "ke": int(slot.get("uang", 0))})
 
     # 1. Harga.
     if tier >= TIER_STANDAR:
@@ -701,6 +748,15 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         if motor_tempo_dekat(slot):
             hasil = bayar_cicilan_motor(slot)
             aksi.append({"aksi": "bayar_motor", **hasil})
+
+    # 6. Penjaga Saldo (akhir): pastikan save yang di-upload tidak pernah
+    # minus — sim bisa memotong biaya harian melewati nol.
+    uang_sebelum_jaga = int(slot.get("uang", 0))
+    slot, tambah = jaga_saldo(slot)
+    if tambah > 0:
+        aksi.append({"aksi": "jaga_saldo", "ok": True, "jumlah": tambah,
+                     "dari": uang_sebelum_jaga,
+                     "ke": int(slot.get("uang", 0))})
 
     return {
         "slot": slot,
