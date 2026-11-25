@@ -137,6 +137,14 @@ BIAYA_HARIAN = {"casual": 10000, "hard": 20000}
 JUMLAH_ISI_OTOMATIS = 50000
 LEVEL_AGEN = 2
 BARANG_TITIPAN = {"roti", "jamu"}  # SALES_TITIPAN (game_state.gd:10705)
+
+# -- mode cuan (fitur /cuan) ------------------------------------------------
+# Mode sengaja mengubah aturan ekonomi lokal (atas permintaan pengguna):
+# beli stok 80% lebih murah, jual tetap harga tinggi, pelanggan jauh lebih
+# ramai. BUKAN perilaku default — hanya aktif saat slot punya mode_cuan.
+CUAN_DISKON_MODAL = 0.2      # harga beli = modal x 0.2 (80% murah)
+CUAN_PENGALI_RAMAI = 0.1     # interval kedatangan x 0.1 (90% ramai)
+CUAN_SISA_UANG = 0.3         # sisakan 30% uang, belanjakan 70%
 KURIR = {
     "reguler": {"detik": 30.0, "ongkir": 10000},
     "cepat": {"detik": 20.0, "ongkir": 20000},
@@ -245,12 +253,18 @@ def agen_items(data: GameData, slot: dict) -> set:
     return hasil
 
 
+def cuan_aktif(slot: dict) -> bool:
+    """Apakah mode cuan aktif untuk slot ini (fitur /cuan)."""
+    return bool(slot.get("mode_cuan", False))
+
+
 def harga_modal(data: GameData, item_id: str, slot: dict,
                 lewat_agen: bool | None = None) -> int:
     """Harga modal beli stok (game_state.gd:5716).
 
     modal katalog x supplier(1,0) x (1+efek supplier) x (1+0,1 bila agen)
-    x (1-diskon promo), dibulatkan ke ratusan.
+    x (1-diskon promo), dibulatkan ke ratusan. Mode cuan: dikali
+    ``CUAN_DISKON_MODAL`` (80% lebih murah).
     """
     item = data.katalog[item_id]
     dimiliki = slot.get("upgrade", []) or []
@@ -263,6 +277,8 @@ def harga_modal(data: GameData, item_id: str, slot: dict,
     if isinstance(promo, dict) and slot.get("promo_hari_ke") == slot.get("hari"):
         diskon = float(promo.get(item_id, 0.0) or 0.0)
         pengali *= 1.0 - diskon
+    if cuan_aktif(slot):
+        pengali *= CUAN_DISKON_MODAL
     return int(round(float(item["modal"]) * pengali / 100.0) * 100)
 
 
@@ -568,6 +584,8 @@ def interval_datang(data: GameData, slot: dict, menit: float) -> tuple[float, fl
                * pengali_ramai_promosi(slot)
                * (1.0 / (1.0 + efek_harga_murah(data, slot) * PENGALI_RAMAI_MURAH))
                * PENGALI_JEDA_PEMBELI)
+    if cuan_aktif(slot):
+        pengali *= CUAN_PENGALI_RAMAI
     # pengali_jeda_kejadian, pengali_pengajian, pengali_ramai_cerita = 1,0
     # di sim (tidak ada event/cuaca/pengajian yang aktif).
     return lo * pengali, hi * pengali
@@ -861,7 +879,9 @@ def _jual_unit(s: dict, data: GameData, item_id: str, hari_ini: dict) -> None:
     item = data.katalog[item_id]
     harga = harga_jual(data, item_id, s)
     if item["jenis"] == "fisik":
-        s["stok"][item_id] = int(s["stok"].get(item_id, 0)) - 1
+        # Mode cuan: stok tak terbatas — tidak dikurangi saat terjual.
+        if not cuan_aktif(s):
+            s["stok"][item_id] = int(s["stok"].get(item_id, 0)) - 1
         modal = harga_modal(data, item_id, s)
     else:
         s["saldo_layanan"] = int(s.get("saldo_layanan", 0)) - int(item["modal"])
@@ -902,7 +922,11 @@ def _layani_pelanggan(s: dict, data: GameData, pelanggan: dict,
     for item_id, jumlah in pesanan:
         item = data.katalog[item_id]
         if item["jenis"] == "fisik":
-            target[item_id] = min(int(jumlah), max(0, int(stok.get(item_id, 0))))
+            if cuan_aktif(s):
+                # Mode cuan: stok tak terbatas — jual sepenuh pesanan.
+                target[item_id] = int(jumlah)
+            else:
+                target[item_id] = min(int(jumlah), max(0, int(stok.get(item_id, 0))))
         else:
             isi = (int(s.get("uang", 0)) // JUMLAH_ISI_OTOMATIS) * JUMLAH_ISI_OTOMATIS
             mampu = (int(s.get("saldo_layanan", 0)) + isi) // max(int(item["modal"]), 1)
@@ -911,11 +935,13 @@ def _layani_pelanggan(s: dict, data: GameData, pelanggan: dict,
     if not target:
         return "habis"
     # Keluhan harga mahal (rasio vs harga pasar, tertinggi di pesanan).
-    rasio_max = max(rasio_harga(data, i, s) for i in target)
-    p_keluh = max(0.0, min(1.0, (rasio_max - MAHAL_MULAI) / (MAHAL_PENUH - MAHAL_MULAI))) \
-        * PELUANG_KELUH_MAKS
-    if rng.random() < p_keluh and rng.random() >= PELUANG_TETAP_BELI:
-        return "mahal"
+    # Mode cuan: pelanggan TIDAK mengeluh harga mahal (jual mahal tetap laku).
+    if not cuan_aktif(s):
+        rasio_max = max(rasio_harga(data, i, s) for i in target)
+        p_keluh = max(0.0, min(1.0, (rasio_max - MAHAL_MULAI) / (MAHAL_PENUH - MAHAL_MULAI))) \
+            * PELUANG_KELUH_MAKS
+        if rng.random() < p_keluh and rng.random() >= PELUANG_TETAP_BELI:
+            return "mahal"
     # Jual per unit (layanan: isi saldo otomatis dulu, potongan 50rb).
     for item_id, jumlah in target.items():
         item = data.katalog[item_id]

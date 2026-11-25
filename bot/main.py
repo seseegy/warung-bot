@@ -40,6 +40,7 @@ from .tg import handlers
 from .tg import sim as sim_tg
 from .tg import tiers as tiers_tg
 from .tg import cepat as cepat_tg
+from .tg import cuan as cuan_tg
 
 log = logging.getLogger("warung-bot")
 
@@ -220,6 +221,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("backup", cepat_tg.cmd_backup))
     app.add_handler(CommandHandler("rencana", cepat_tg.cmd_rencana))
     app.add_handler(CommandHandler("statistik", cepat_tg.cmd_statistik))
+    # Mode cuan (beli murah, jual mahal, pelanggan ramai).
+    app.add_handler(CommandHandler("cuan", cuan_tg.cmd_cuan))
+    app.add_handler(CommandHandler("cuan_mati", cuan_tg.cmd_cuan_mati))
     app.add_handler(CallbackQueryHandler(handlers.on_callback))
     app.add_handler(MessageHandler(filters.Document.ALL, handlers.on_document))
     app.add_handler(

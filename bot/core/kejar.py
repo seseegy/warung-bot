@@ -146,6 +146,7 @@ def satu_siklus_kejar(slot_awal: dict, data, tugas_data: dict,
         "diusir": bool(slot.get("diusir")),
         "uang_awal": int(hasil.get("uang_awal", slot_awal.get("uang", 0))),
         "uang_akhir": int(slot.get("uang", 0)),
+        "sim": hasil.get("sim"),
         "total_pembeli_awal": total_awal,
         "total_pembeli_akhir": int(slot.get("total_pembeli", 0)),
     }

@@ -267,11 +267,16 @@ def _ringkas_siklus(hasil: dict) -> list[str]:
     baris = ["Siklus otomatis selesai:"]
     sim = hasil.get("sim")
     if sim is not None:
+        laba = int(sim["laba"])
         baris.append(
             f"Simulasi 1 hari (terbaik dari {sim.get('percobaan', 1)}): "
             f"omzet {_format_rupiah(sim['omzet'])} · "
-            f"laba {_format_rupiah(sim['laba'])} · "
+            f"laba {_format_rupiah(laba)} · "
             f"dilayani {sim['dilayani']} · batal {sim['batal']}")
+        baris.append(
+            f"Cuan hari ini: {_format_rupiah(laba)}"
+            + (" (UNTUNG)" if laba > 0
+               else " (RUGI)" if laba < 0 else " (IMPAS)"))
     if hasil.get("batas_terlampaui"):
         baris.append("Batas harian terlampaui — simulasi tidak diterapkan.")
     jaga = [a for a in hasil["aksi"]
@@ -882,7 +887,38 @@ async def jalankan_mode_kejar(app, chat_id: int) -> None:
             await _matikan_mode_kejar(app, chat_id, alasan,
                                       info_jaga=total_jaga)
         return
-    # Siklus biasa: diam (tidak spam).
+    # Siklus biasa: kirim statistik cuan singkat (fitur /cuan — atas
+    # permintaan pengguna). Bukan spam penuh: satu baris per hari game.
+    if cuan_aktif_slot(hasil["slot"]):
+        try:
+            await app.bot.send_message(
+                chat_id=chat_id,
+                text=_teks_cuan_kejar(hasil),
+            )
+        except Exception:
+            log.exception("gagal mengirim statistik cuan ke chat %s", chat_id)
+
+
+def _teks_cuan_kejar(hasil: dict) -> str:
+    """Satu baris statistik cuan hari ini untuk Mode Kejar (mode cuan)."""
+    sim = hasil.get("sim") or {}
+    laba = int(sim.get("laba", 0))
+    omzet = int(sim.get("omzet", 0))
+    if laba > 0:
+        tanda = "UNTUNG"
+    elif laba < 0:
+        tanda = "RUGI"
+    else:
+        tanda = "IMPAS"
+    hari = int(hasil["slot"].get("hari", 0))
+    return (f"Cuan hari {hari}: omzet {_format_rupiah(omzet)} · "
+            f"laba {_format_rupiah(laba)} ({tanda})")
+
+
+def cuan_aktif_slot(slot: dict) -> bool:
+    """Mode cuan aktif di slot? (import sim untuk menghindari cyclic)."""
+    from . import sim as sim_mod
+    return sim_mod.cuan_aktif(slot)
 
 
 def muat_semua_jadwal(scheduler: AsyncIOScheduler, app, store) -> int:

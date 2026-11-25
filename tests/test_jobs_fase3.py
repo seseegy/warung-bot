@@ -150,6 +150,7 @@ async def test_siklus_berhasil_mengunggah_dan_melapor(
     teks = bot_mock.send_message.await_args.kwargs["text"]
     assert "Siklus otomatis selesai" in teks
     assert "Simulasi 1 hari" in teks
+    assert "Cuan hari ini" in teks
     # Audit tercatat, otomatisasi tetap nyala.
     assert store.get_otomatis(123) is True
     assert any(e["aksi"] == "simulasi" for e in store.get_audit(123, 0))

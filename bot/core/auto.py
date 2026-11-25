@@ -676,8 +676,12 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         else:
             hasil_sim = sim_mod.simulate(slot, data, 1, seed=seed)
             hasil_sim["percobaan"] = 1
-        cek = cek_batas_harian(uang_awal, int(hasil_sim["uang_akhir"]),
-                               batas_harian)
+        # Mode cuan (fitur /cuan): batas harian tidak berlaku — override
+        # bebas atas permintaan pengguna, supaya laba besar tidak ditolak.
+        cek = ({"melewati": False, "selisih": 0}
+               if sim_mod.cuan_aktif(slot)
+               else cek_batas_harian(uang_awal, int(hasil_sim["uang_akhir"]),
+                                     batas_harian))
         if cek["melewati"]:
             batas_terlampaui = True
             aksi.append({"aksi": "simulasi", "ok": False,

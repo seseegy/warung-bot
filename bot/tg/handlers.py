@@ -76,6 +76,8 @@ TEKS_BANTUAN = (
     "/backup — arsip paket harian / pulihkan simpanan lama\n"
     "/rencana — rencana 7 hari (restock + upgrade)\n"
     "/statistik — barang laku & omzet dari riwayat save\n"
+    "/cuan — mode cuan: beli stok murah (80%), jual mahal, pelanggan ramai\n"
+    "/cuan_mati — nonaktifkan mode cuan, kembali normal\n"
     "/bantuan — daftar ini\n"
     "/batal — batalkan alur yang sedang berjalan\n\n"
     "Catatan: game harus TERTUTUP saat bot mengunggah, supaya hasilnya "
