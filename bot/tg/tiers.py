@@ -230,17 +230,9 @@ async def _kirim_laporan(message, context, hari: int) -> None:
             f"Peringkat papan: #{peringkat['peringkat']} "
             f"dari {peringkat['jumlah_warung']} warung")
     if audit:
-        baris.append("")
-        baris.append(f"Aksi otomatis ({len(audit)}):")
-        for entri in reversed(audit):
-            waktu = datetime.fromtimestamp(
-                entri["waktu"], auto_mod.WIB).strftime("%d %b %H:%M")
-            baris.append(
-                f"- {waktu} {entri['aksi']}"
-                + (f": {entri['detail']}" if entri["detail"] else ""))
+        baris += _baris_audit(audit)
     else:
-        baris.append("")
-        baris.append("Tidak ada aksi otomatis tercatat di periode ini.")
+        baris += ["", "Tidak ada aksi otomatis tercatat di periode ini."]
     markup = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(
@@ -1026,6 +1018,33 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
     return False
 
 
+def _baris_audit(audit: list[dict], maks: int = 20) -> list[str]:
+    """Baris ringkasan audit untuk laporan (hindari Message_too_long).
+
+    Menampilkan hitungan per jenis aksi + ``maks`` entri terakhir. Mode
+    Kerja/Target/Kejar mencatat audit tiap 5 menit, jadi daftar penuh
+    bisa ribuan baris dan melewati batas 4096 karakter Telegram.
+    """
+    if not audit:
+        return ["", "Tidak ada aksi otomatis tercatat di periode ini."]
+    hitung: dict[str, int] = {}
+    for e in audit:
+        k = str(e.get("aksi", "?"))
+        hitung[k] = hitung.get(k, 0) + 1
+    ringkasan = ", ".join(f"{k} x{v}" for k, v in
+                          sorted(hitung.items(), key=lambda kv: -kv[1]))
+    baris = ["", f"Aksi otomatis ({len(audit)}):", f"Ringkasan: {ringkasan}"]
+    for entri in reversed(audit[:maks]):
+        waktu = datetime.fromtimestamp(
+            entri["waktu"], auto_mod.WIB).strftime("%d %b %H:%M")
+        detail = str(entri.get("detail") or "")[:120]
+        baris.append(
+            f"- {waktu} {entri['aksi']}" + (f": {detail}" if detail else ""))
+    if len(audit) > maks:
+        baris.append(f"... dan {len(audit) - maks} aksi lainnya (dipotong).")
+    return baris
+
+
 async def _edit_laporan(query, context, hari: int) -> None:
     """Versi edit-pesan dari laporan (untuk tombol di layar laporan)."""
     chat_id = query.message.chat_id
@@ -1057,17 +1076,9 @@ async def _edit_laporan(query, context, hari: int) -> None:
         f"Pelanggan dilayani total: {int(slot.get('total_pembeli', 0))}",
     ]
     if audit:
-        baris.append("")
-        baris.append(f"Aksi otomatis ({len(audit)}):")
-        for entri in reversed(audit):
-            waktu = datetime.fromtimestamp(
-                entri["waktu"], auto_mod.WIB).strftime("%d %b %H:%M")
-            baris.append(
-                f"- {waktu} {entri['aksi']}"
-                + (f": {entri['detail']}" if entri["detail"] else ""))
+        baris += _baris_audit(audit)
     else:
-        baris.append("")
-        baris.append("Tidak ada aksi otomatis tercatat di periode ini.")
+        baris += ["", "Tidak ada aksi otomatis tercatat di periode ini."]
     markup = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(
