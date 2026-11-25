@@ -990,6 +990,53 @@ def _level_bab(daftar_bab: list, i: int) -> int:
         return i + 1
 
 
+def _data_bab(s: dict, data: GameData) -> dict:
+    """Dict bab berjalan (``data_bab()`` game), {} bila di luar rentang."""
+    daftar = data.cerita.get("bab", []) or []
+    bab = int(s.get("bab", 0))
+    if 0 <= bab < len(daftar) and isinstance(daftar[bab], dict):
+        return daftar[bab]
+    return {}
+
+
+def _tarik_qris_untuk(s: dict, jumlah: int) -> None:
+    """``_tarik_qris_untuk()`` (game_state.gd:2449): pindahkan saldo
+    QRIS ke uang tunai sebatas kekurangan untuk membayar ``jumlah``."""
+    kurang = min(int(jumlah) - int(s.get("uang", 0)),
+                 int(s.get("saldo_digital", 0)))
+    if kurang <= 0:
+        return
+    s["saldo_digital"] = int(s.get("saldo_digital", 0)) - kurang
+    s["uang"] = int(s.get("uang", 0)) + kurang
+
+
+def selesaikan_bab(s: dict, data: GameData) -> None:
+    """``_selesaikan_bab()`` (game_state.gd:4387) — efek bab selesai.
+
+    Bab kios: kios jadi milik sendiri, tunggakan sewa dibayar sebatas
+    uang+QRIS lalu dihapus, cicilan sewa dikembalikan, kunci sewa
+    dihapus. Semua bab: misi jadi "lunas" dan dialog selesai dicatat.
+    """
+    if bool(_data_bab(s, data).get("kios", False)):
+        s["kios_milik"] = True
+        tunggakan = int(s.get("tunggakan_sewa", 0))
+        if tunggakan > 0:
+            _tarik_qris_untuk(s, tunggakan)
+            bayar = max(0, min(int(s.get("uang", 0)), tunggakan))
+            s["uang"] = int(s.get("uang", 0)) - bayar
+        s["tunggakan_sewa"] = 0
+        s["minggu_tunggak"] = 0
+        cicil = int(s.get("sewa_cicil", 0))
+        if cicil > 0:
+            s["uang"] = int(s.get("uang", 0)) + cicil
+            s["sewa_cicil"] = 0
+    s["sewa_kunci"] = {}
+    s["misi_status"] = "lunas"
+    dialog = s.get("dialog_tertunda")
+    if isinstance(dialog, list):
+        dialog.append(f"selesai:{int(s.get('bab', 0))}")
+
+
 def _bayar_misi_sim(s: dict, data: GameData) -> bool:
     """Bayar misi cerita di dalam sim (mengubah s di tempat).
 
@@ -1007,15 +1054,23 @@ def _bayar_misi_sim(s: dict, data: GameData) -> bool:
     if str(s.get("misi_status", "")) != "aktif":
         return False
     kurang = max(int(s.get("target_bab", 0)) - int(s.get("kiriman_bab", 0)), 0)
+    if str(_data_bab(s, data).get("jenis", "kirim")) == "hadiah":
+        # Bab hadiah (game_state.gd:4426): game MENAMBAH uang pemain
+        # sebesar target lalu langsung menyelesaikan bab — bukan
+        # pembayaran. Save bot lama bisa menyimpan bab ini "aktif".
+        s["uang"] = int(s.get("uang", 0)) + kurang
+        s["kiriman_bab"] = int(s.get("target_bab", 0))
+        selesaikan_bab(s, data)
+        return True
     if kurang <= 0:
-        s["misi_status"] = "lunas"
+        selesaikan_bab(s, data)
         return True
     if int(s.get("uang", 0)) - kurang < CADANGAN_UANG_MIN:
         return False
     s["uang"] = int(s.get("uang", 0)) - kurang
     s["kiriman_bab"] = int(s.get("target_bab", 0))
-    s["misi_status"] = "lunas"
     s["_bayar_misi"] = int(s.get("_bayar_misi", 0) or 0) + kurang
+    selesaikan_bab(s, data)
     return True
 
 
@@ -1050,6 +1105,12 @@ def _siapkan_misi_berikutnya(s: dict, data: GameData) -> None:
     s["kiriman_bab"] = 0
     s["target_bab"] = int(daftar_bab[calon].get("target", 0))
     s["misi_status"] = "aktif"
+    if str(daftar_bab[calon].get("jenis", "kirim")) == "hadiah":
+        # ``_mulai_bab`` game (game_state.gd:4426): bab hadiah langsung
+        # menambah uang sebesar target dan selesai saat itu juga.
+        s["uang"] = int(s.get("uang", 0)) + int(s["target_bab"])
+        s["kiriman_bab"] = int(s["target_bab"])
+        selesaikan_bab(s, data)
 
 
 def _cek_tugas(s: dict, data: GameData) -> bool:
@@ -1107,7 +1168,28 @@ def _cek_tugas(s: dict, data: GameData) -> bool:
     hadiah = int(t.get("hadiah", 0))
     s["uang"] = int(s.get("uang", 0)) + hadiah
     s["_hadiah_hari"] = int(s.get("_hadiah_hari", 0)) + hadiah
-    buka = list(t.get("buka", []) or [])
+    # Game memanggil sewa_per_minggu() SEBELUM tingkat naik
+    # (game_state.gd:3198): kunci sewa minggu berjalan pada tingkat
+    # lama supaya kenaikan level tidak menaikkan sewa minggu ini.
+    if not s.get("kios_milik"):
+        hari = int(s.get("hari", 1))
+        tambah = 1 if (int(s.get("sewa_selesai_hari", 0)) == hari
+                       and hari % 7 == 0) else 0
+        minggu = int((hari - 1) / 7) + tambah
+        kunci = s.get("sewa_kunci", {}) or {}
+        if int(kunci.get("minggu", -1)) != minggu:
+            daftar_sewa = (data.cerita.get("sewa", {}) or {}).get(
+                "per_minggu", [0]) or [0]
+            s["sewa_kunci"] = {
+                "minggu": minggu,
+                "jumlah": int(daftar_sewa[max(
+                    0, min(tingkat, len(daftar_sewa) - 1))]),
+            }
+    # Barang buka milik tingkat BARU (game menaikkan tingkat dulu,
+    # lalu membuka barang_level_ini() — game_state.gd:3199).
+    buka = []
+    if tingkat + 1 < len(data.tugas):
+        buka = list(data.tugas[tingkat + 1].get("buka", []) or [])
     bab_lunas = None
     if str(s.get("misi_status", "")) == "lunas" and not s.get("cerita_tamat"):
         bab = int(s.get("bab", 0))
@@ -1129,6 +1211,7 @@ def _cek_tugas(s: dict, data: GameData) -> bool:
     if (bab_lunas is not None and daftar_bab
             and bab_lunas >= len(daftar_bab) - 1):
         s["cerita_tamat"] = True
+        s["misi_status"] = ""
         s["barang_terbuka"] = buka_semua_cerita(s, data)
     elif not s.get("cerita_tamat"):
         _siapkan_misi_berikutnya(s, data)
@@ -1183,6 +1266,12 @@ def _layani_pelanggan(s: dict, data: GameData, pelanggan: dict,
     # (``_tersedia`` layanan.gd:1883) — dihitung SEBELUM ada penjualan,
     # karena game memeriksa kecukupan dulu baru menjual.
     target: dict = {}
+    # Kapasitas layanan adalah pool bersama (saldo + isi otomatis dari
+    # uang yang sama): hitung berurutan supaya dua layanan dalam satu
+    # pesanan tidak masing-masing memakai uang yang sama dua kali.
+    pool_layanan = (int(s.get("saldo_layanan", 0))
+                    + (int(s.get("uang", 0)) // JUMLAH_ISI_OTOMATIS)
+                    * JUMLAH_ISI_OTOMATIS)
     for item_id, jumlah in pesanan:
         item = data.katalog[item_id]
         if item["jenis"] == "fisik":
@@ -1192,9 +1281,10 @@ def _layani_pelanggan(s: dict, data: GameData, pelanggan: dict,
             else:
                 target[item_id] = min(int(jumlah), max(0, int(stok.get(item_id, 0))))
         else:
-            isi = (int(s.get("uang", 0)) // JUMLAH_ISI_OTOMATIS) * JUMLAH_ISI_OTOMATIS
-            mampu = (int(s.get("saldo_layanan", 0)) + isi) // max(int(item["modal"]), 1)
+            modal = max(int(item["modal"]), 1)
+            mampu = pool_layanan // modal
             target[item_id] = min(int(jumlah), mampu)
+            pool_layanan -= target[item_id] * modal
     target = {i: q for i, q in target.items() if q > 0}
     if not target:
         return "habis"
@@ -1354,12 +1444,13 @@ def _tutup_hari(s: dict, data: GameData, hari_ini: dict) -> None:
     s["energi"] = 100.0
     s["istirahat_hari"] = {}
     s["penjualan_hari"] = {}
-    s["catatan_hari"] = {"omzet": hari_ini["omzet"], "laba": hari_ini["laba"],
-                         "terjual": hari_ini["barang"],
-                         "belanja": hari_ini.get("belanja", 0),
-                         "dilayani": hari_ini["dilayani"],
-                         "batal": hari_ini["batal"],
-                         "hadiah": int(s.get("_hadiah_hari", 0))}
+    # catatan_hari adalah penghitung hari BERJALAN (game_state.gd:890
+    # mengosongkannya saat hari baru mulai); ringkasan kemarin sudah
+    # disimpan di riwayat di atas.
+    s["catatan_hari"] = {"omzet": 0, "laba": 0, "terjual": 0,
+                         "belanja": 0, "dilayani": 0, "batal": 0,
+                         "hadiah": 0}
+    hari_ini["hadiah"] = int(s.get("_hadiah_hari", 0))
     s["_hadiah_hari"] = 0
 
 
@@ -1493,7 +1584,7 @@ def simulate_day(s: dict, data: GameData, rng: random.Random,
     hari_ini["tingkat_akhir"] = int(s.get("tingkat", 0))
     hari_ini["uang_akhir"] = int(s.get("uang", 0))
     hari_ini["qris_akhir"] = int(s.get("saldo_digital", 0))
-    hari_ini["hadiah"] = int((s.get("catatan_hari", {}) or {}).get("hadiah", 0))
+    hari_ini["hadiah"] = int(hari_ini.get("hadiah", 0))
     return hari_ini
 
 
@@ -1532,7 +1623,7 @@ def simulate(slot: dict, data: GameData, jumlah_hari: int,
     per_hari = []
     for _ in range(jumlah_hari):
         per_hari.append(simulate_day(s, data, rng, **opts))
-        if s.get("diusir"):
+        if s.get("diusir") or s.get("bangkrut"):
             break
     uang_akhir = int(s.get("uang", 0))
     # Tangkap total bayar misi sim SEBELUM kunci internal dibersihkan.

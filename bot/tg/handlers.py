@@ -15,6 +15,8 @@ diam-diam (hanya dicatat di log).
 from __future__ import annotations
 
 import logging
+import math
+import time
 
 from telegram import Update
 from telegram.error import BadRequest
@@ -26,10 +28,12 @@ from ..core.cloud import CloudError, NoCloudData, SessionExpired
 from . import keyboards as kb
 from .confirm import (
     PENDING_KEY,
+    TTL_KONFIRM_DETIK,
     build_pending_tugas,
     build_pending_uang,
     execute_force_upload,
     execute_upload,
+    stempel_pending,
 )
 from .link import receive_document as link_receive_document
 from .link import show_cara_ambil, start_link
@@ -83,6 +87,8 @@ TEKS_BANTUAN = (
     "/absen — status absen harian game (hadiah + bonus 3/7/30)\n"
     "/absen_set <nominal> — atur hadiah absen per hari game (0 = mati)\n"
     "/absen_reset — reset siklus absen ke hari ke-1\n"
+    "/unlimited — set stok/uang/pembeli ke angka besar, buka semua "
+    "barang/upgrade, cerita tamat, level maksimum\n"
     "/bantuan — daftar ini\n"
     "/batal — batalkan alur yang sedang berjalan\n\n"
     "Catatan: game harus TERTUTUP saat bot mengunggah, supaya hasilnya "
@@ -161,9 +167,12 @@ def _parse_jumlah(teks: str) -> int | None:
         nilai = float(s)
     except ValueError:
         return None
-    if nilai < 0:
+    if nilai < 0 or not math.isfinite(nilai):
         return None
-    return int(nilai * pengali)
+    try:
+        return int(nilai * pengali)
+    except (OverflowError, ValueError):
+        return None
 
 
 # -- perintah ----------------------------------------------------------
@@ -239,12 +248,13 @@ async def cmd_unlink(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if store.get_user(message.chat_id) is None:
         await message.reply_text("Belum ada akun tertaut.")
         return
-    context.user_data[PENDING_KEY] = {"kind": "unlink"}
+    pending_unlink = stempel_pending({"kind": "unlink"})
+    context.user_data[PENDING_KEY] = pending_unlink
     await message.reply_text(
         "Putuskan tautan dan HAPUS semua data akun dari bot ini?\n"
         "Token, versi cloud, dan cadangan paket akan dihapus. "
         "Save di cloud TIDAK ikut terhapus.",
-        reply_markup=kb.unlink_confirm_keyboard(),
+        reply_markup=kb.unlink_confirm_keyboard(pending_unlink.get("token")),
     )
 
 
@@ -363,7 +373,7 @@ async def cmd_tugas_selesai(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
-        teks, reply_markup=kb.confirm_keyboard("tugas")
+        teks, reply_markup=kb.confirm_keyboard("tugas", pending.get("token"))
     )
 
 
@@ -419,7 +429,7 @@ async def cmd_upload_paksa(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         "Simpanan cloud yang lebih baru akan TERTIMPA dan tidak bisa "
         "dikembalikan dari cloud (bot menyimpan cadangannya sebelum "
         "upload pertama).",
-        reply_markup=kb.confirm_keyboard("paksa"),
+        reply_markup=kb.confirm_keyboard("paksa", pending.get("token")),
     )
 
 
@@ -449,6 +459,10 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     if data == "menu:root":
+        # Kembali ke menu membatalkan input bebas yang sedang ditunggu,
+        # supaya teks berikutnya tidak ditelan prompt lama.
+        context.user_data.pop("awaiting", None)
+        context.user_data.pop("unlimited_aksi", None)
         await _edit(query, "Menu.", kb.main_menu())
         return
     if data == "menu:status":
@@ -465,6 +479,21 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     if data == "menu:pengaturan":
         await _tampilkan_pengaturan(query, context)
+        return
+    if data.startswith("pengaturan:"):
+        store = context.bot_data["store"]
+        if data == "pengaturan:baca_saja":
+            store.set_baca_saja(chat_id, not store.get_baca_saja(chat_id))
+            await _tampilkan_pengaturan(query, context)
+            return
+        if data == "pengaturan:batas":
+            preset = [50000, 100000, 250000, 500000, 1000000, 5000000]
+            sekarang = store.get_batas_harian(chat_id)
+            berikut = next((p for p in preset if p > sekarang), preset[0])
+            store.set_batas_harian(chat_id, berikut)
+            await _tampilkan_pengaturan(query, context)
+            return
+        await _edit(query, "Tombol tidak dikenal.", kb.main_menu())
         return
     if data == "menu:upload_paksa":
         from .cepat import _UpdateTiruan
@@ -506,6 +535,11 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if data.startswith("absen:"):
         from . import absen as absen_tg
         await absen_tg.on_callback_absen(update, context, query, data)
+        return
+
+    if data.startswith("unlimited:"):
+        from . import unlimited as unlimited_tg
+        await unlimited_tg.on_callback_unlimited(update, context)
         return
 
     if data.startswith("konfirm:"):
@@ -597,6 +631,7 @@ async def _tampilkan_pengaturan(query, context) -> None:
         await _edit(query, "Belum ada akun tertaut. Tautkan dulu dengan /link.")
         return
     tier = store.get_tier(chat_id)
+    baca_saja = store.get_baca_saja(chat_id)
     teks = (
         "Pengaturan\n\n"
         f"Akun: {session.get('email') or '-'}\n"
@@ -605,7 +640,11 @@ async def _tampilkan_pengaturan(query, context) -> None:
         f"Tier: {tier} ({tiers_core.TIER_NAMA[tier]})\n"
         f"Otomatisasi: {'nyala' if store.get_otomatis(chat_id) else 'mati'} "
         f"(jam {store.get_jam_otomatis(chat_id):02d}.00 WIB)\n"
-        f"Batas harian: {store.get_batas_harian(chat_id)}\n\n"
+        f"Mode baca saja: {'NYALA' if baca_saja else 'mati'}\n"
+        f"Batas harian: {format_rupiah(store.get_batas_harian(chat_id))}\n\n"
+        "Mode baca saja mematikan semua aksi tulis bot (termasuk "
+        "siklus otomatis). Batas harian membatasi kenaikan uang per "
+        "siklus otomatis.\n\n"
         "Putuskan tautan akan menghapus token dan semua data akun "
         "dari bot ini (save di cloud tidak ikut terhapus)."
     )
@@ -614,6 +653,11 @@ async def _tampilkan_pengaturan(query, context) -> None:
         teks,
         kb.InlineKeyboardMarkup(
             [
+                [kb.InlineKeyboardButton(
+                    "Matikan Baca Saja" if baca_saja else "Nyalakan Baca Saja",
+                    callback_data="pengaturan:baca_saja")],
+                [kb.InlineKeyboardButton("Ubah Batas Harian",
+                                         callback_data="pengaturan:batas")],
                 [kb.InlineKeyboardButton("Upload Paksa",
                                          callback_data="menu:upload_paksa")],
                 [kb.InlineKeyboardButton("Putuskan Tautan", callback_data="konfirm:tanya:unlink")],
@@ -670,7 +714,7 @@ async def _mulai_isi_tugas(query, context) -> None:
         await _edit(query, f"Tidak bisa mengisi tugas: {exc}")
         return
     context.user_data[PENDING_KEY] = pending
-    await _edit(query, teks, kb.confirm_keyboard("tugas"))
+    await _edit(query, teks, kb.confirm_keyboard("tugas", pending.get("token")))
 
 
 async def _uang_callback(query, context, data: str) -> None:
@@ -705,9 +749,9 @@ async def _uang_callback(query, context, data: str) -> None:
                 kb.money_keyboard(),
             )
             return
-        pending, teks = build_pending_uang(state, jumlah_baru)
+        pending, teks = build_pending_uang(state, jumlah_baru, delta=delta)
         context.user_data[PENDING_KEY] = pending
-        await _edit(query, teks, kb.confirm_keyboard("uang"))
+        await _edit(query, teks, kb.confirm_keyboard("uang", pending.get("token")))
         return
     if data == "uang:ketik":
         context.user_data["awaiting"] = "uang_input"
@@ -727,36 +771,67 @@ async def _uang_callback(query, context, data: str) -> None:
 async def _konfirm_callback(query, context, data: str) -> None:
     chat_id = query.message.chat_id
     bagian = data.split(":")
-    # konfirm:<ya|tidak|tanya>:<aksi>
-    if len(bagian) != 3:
+    # konfirm:<ya|tidak|tanya>:<aksi>[:<token>]
+    if len(bagian) not in (3, 4):
         await _edit(query, "Tombol tidak dikenal.", kb.main_menu())
         return
-    _, aksi_konfirm, aksi = bagian
+    _, aksi_konfirm, aksi = bagian[0], bagian[1], bagian[2]
+    token = bagian[3] if len(bagian) == 4 else None
+    if aksi_konfirm not in ("ya", "tidak", "tanya"):
+        await _edit(query, "Tombol tidak dikenal.", kb.main_menu())
+        return
     if aksi_konfirm == "tanya" and aksi == "unlink":
-        context.user_data[PENDING_KEY] = {"kind": "unlink"}
+        pending_unlink = stempel_pending({"kind": "unlink"})
+        context.user_data[PENDING_KEY] = pending_unlink
         await _edit(
             query,
             "Putuskan tautan dan HAPUS semua data akun dari bot ini?\n"
             "Token, versi cloud, dan cadangan paket akan dihapus. "
             "Save di cloud TIDAK ikut terhapus.",
-            kb.unlink_confirm_keyboard(),
+            kb.unlink_confirm_keyboard(pending_unlink.get("token")),
         )
         return
     pending = context.user_data.get(PENDING_KEY) or {}
+
+    def _token_cocok() -> bool:
+        return bool(token) and token == pending.get("token")
+
+    def _kedaluwarsa() -> bool:
+        dibuat = pending.get("dibuat")
+        return (not isinstance(dibuat, (int, float))
+                or time.time() - float(dibuat) > TTL_KONFIRM_DETIK)
+
     if aksi_konfirm == "tidak":
+        if pending and not _token_cocok():
+            await _edit(query, "Tombol ini sudah lama. Mulai lagi dari Menu.",
+                        kb.main_menu())
+            return
         context.user_data.pop(PENDING_KEY, None)
         context.user_data.pop("awaiting", None)
         await _edit(query, "Dibatalkan.", kb.main_menu())
         return
-    # aksi_konfirm == "ya"
+    # aksi_konfirm "ya" (atau "tanya" untuk simulasi/harga: tombol
+    # Terapkan langsung mengeksekusi pending-nya).
     if aksi == "unlink":
+        if pending.get("kind") != "unlink" or not _token_cocok() or _kedaluwarsa():
+            context.user_data.pop(PENDING_KEY, None)
+            await _edit(query, "Konfirmasi unlink sudah kedaluwarsa. "
+                        "Mulai lagi dari Menu.", kb.main_menu())
+            return
         context.bot_data["store"].delete_user(chat_id)
         context.user_data.pop(PENDING_KEY, None)
         await _edit(query, "Tautan diputus. Semua data akun dihapus dari bot.")
         return
-    if aksi in ("uang", "tugas", "simulasi", "harga", "cepat", "rollback"):
-        if pending.get("kind") != aksi:
+    if aksi in ("uang", "tugas", "simulasi", "harga", "cepat", "rollback",
+                "unlimited"):
+        if pending.get("kind") != aksi or not _token_cocok():
             await _edit(query, "Tidak ada aksi tertunda yang cocok. Mulai lagi dari Menu.", kb.main_menu())
+            return
+        if _kedaluwarsa():
+            context.user_data.pop(PENDING_KEY, None)
+            await _edit(query, "Konfirmasi sudah kedaluwarsa (lebih dari "
+                        "15 menit). Jalankan lagi aksinya dari Menu.",
+                        kb.main_menu())
             return
         teks, status = await execute_upload(context, chat_id, pending)
         context.user_data.pop(PENDING_KEY, None)
@@ -765,19 +840,29 @@ async def _konfirm_callback(query, context, data: str) -> None:
             context.bot_data["store"].log_audit(
                 chat_id, str(pending["audit"].get("aksi", aksi)),
                 str(pending["audit"].get("detail", "")))
+            # Mode cuan persisten di Store (flag slot hilang saat game
+            # menyimpan): catat statusnya hanya setelah upload berhasil.
+            if pending["audit"].get("aksi") == "cuan":
+                context.bot_data["store"].set_cuan(chat_id, True)
+            elif pending["audit"].get("aksi") == "cuan_mati":
+                context.bot_data["store"].set_cuan(chat_id, False)
         if status == "bentrok":
             # Pending dipertahankan (dengan p_data) untuk "Timpa".
             context.user_data[PENDING_KEY] = pending
-            await _edit(query, teks, kb.conflict_keyboard())
+            await _edit(query, teks, kb.conflict_keyboard(pending.get("token")))
         else:
             await _edit(query, teks, kb.back_to_menu())
         return
     if aksi == "paksa":
-        if not pending.get("p_data"):
+        if not pending.get("p_data") or not _token_cocok():
             await _edit(query, "Tidak ada upload tertunda yang bisa dipaksa.", kb.main_menu())
             return
         teks, status = await execute_force_upload(context, chat_id, pending)
         context.user_data.pop(PENDING_KEY, None)
+        if status == "ok":
+            context.bot_data["store"].log_audit(
+                chat_id, "upload_paksa",
+                f"timpa paksa pending {pending.get('kind', '?')}")
         await _edit(query, teks, kb.back_to_menu())
         return
     await _edit(query, "Tombol tidak dikenal.", kb.main_menu())
@@ -789,13 +874,18 @@ async def _bentrok_callback(query, context, data: str) -> None:
         context.user_data.pop(PENDING_KEY, None)
         await _tampilkan_status_callback(query, context)
         return
-    if data == "bentrok:timpa":
+    if data == "bentrok:timpa" or data.startswith("bentrok:timpa:"):
         pending = context.user_data.get(PENDING_KEY) or {}
-        if not pending.get("p_data"):
+        token = data.split(":", 2)[2] if data.count(":") >= 2 else None
+        if not pending.get("p_data") or token != pending.get("token"):
             await _edit(query, "Tidak ada upload tertunda yang bisa dipaksa.", kb.main_menu())
             return
         teks, status = await execute_force_upload(context, chat_id, pending)
         context.user_data.pop(PENDING_KEY, None)
+        if status == "ok":
+            context.bot_data["store"].log_audit(
+                chat_id, "upload_paksa",
+                f"timpa paksa pending {pending.get('kind', '?')}")
         await _edit(query, teks, kb.back_to_menu())
         return
     await _edit(query, "Tombol tidak dikenal.", kb.main_menu())
@@ -819,6 +909,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     if awaiting in ("cepat_jual", "cepat_beli"):
         await cepat_tg.on_text_cepat(update, context)
+        return
+    if awaiting == "unlimited_input":
+        from . import unlimited as unlimited_tg
+        await unlimited_tg.on_text_unlimited(update, context)
         return
     if awaiting != "uang_input":
         await message.reply_text(
@@ -866,7 +960,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     pending, teks = build_pending_uang(state, jumlah)
     context.user_data[PENDING_KEY] = pending
-    await message.reply_text(teks, reply_markup=kb.confirm_keyboard("uang"))
+    await message.reply_text(teks, reply_markup=kb.confirm_keyboard("uang", pending.get("token")))
 
 
 async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

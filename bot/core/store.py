@@ -293,6 +293,7 @@ class Store:
         self._conn.execute("DELETE FROM peringkat WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM mode_target WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM mode_kejar WHERE chat_id=?", (chat_id,))
+        self._conn.execute("DELETE FROM mode_kerja WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM meta WHERE chat_id=?", (chat_id,))
         self._conn.execute("DELETE FROM users WHERE chat_id=?", (chat_id,))
         self._conn.commit()
@@ -347,6 +348,19 @@ class Store:
             (chat_id, str(kunci), str(nilai), int(time.time())),
         )
         self._conn.commit()
+
+    # -- mode cuan (persisten di Store, bukan hanya flag slot) ----------
+    def get_cuan(self, chat_id: int) -> bool:
+        """Mode cuan aktif menurut Store.
+
+        Flag ``mode_cuan`` di slot hilang saat game menyimpan (penulis
+        save game memakai dict field tetap), jadi Store adalah sumber
+        kebenaran; fetch state memasang ulang flag ke slot.
+        """
+        return self.meta_get(chat_id, "mode_cuan") == "1"
+
+    def set_cuan(self, chat_id: int, aktif: bool) -> None:
+        self.meta_set(chat_id, "mode_cuan", "1" if aktif else "0")
 
     # -- absen harian game (fitur /absen) --------------------------------
     def get_absen(self, chat_id: int) -> dict:
@@ -652,6 +666,18 @@ class Store:
             (chat_id, int(time.time()), str(aksi), str(detail),
              str(lama), str(baru)),
         )
+        # Pruning berkala (tiap 100 entri): audit Mode Kerja 5 menit
+        # tumbuh ribuan baris per minggu.
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM audit_log WHERE chat_id=?",
+            (chat_id,)).fetchone()
+        if int(row["n"]) > self.MAKS_AUDIT_PER_CHAT + 100:
+            self._conn.execute(
+                "DELETE FROM audit_log WHERE chat_id=? AND id NOT IN"
+                " (SELECT id FROM audit_log WHERE chat_id=?"
+                "  ORDER BY id DESC LIMIT ?)",
+                (chat_id, chat_id, self.MAKS_AUDIT_PER_CHAT),
+            )
         self._conn.commit()
 
     def get_audit(self, chat_id: int, sejak: int, limit: int = 200) -> list[dict]:
@@ -755,11 +781,22 @@ class Store:
                  "aktif": bool(r["aktif"])} for r in rows]
 
     # -- cadangan paket (rollback sebelum upload) -----------------------
+    MAKS_BACKUP_PER_CHAT = 60
+    MAKS_AUDIT_PER_CHAT = 10000
+
     def save_backup(self, chat_id: int, versi: int, p_data: str) -> None:
         self._conn.execute(
             "INSERT INTO backups (chat_id, versi, p_data_enc, created_at)"
             " VALUES (?, ?, ?, ?)",
             (chat_id, int(versi), self._enc(p_data), int(time.time())),
+        )
+        # Pruning: simpan hanya arsip terbaru per chat — Mode Kerja
+        # 5 menit menghasilkan ratusan backup per hari.
+        self._conn.execute(
+            "DELETE FROM backups WHERE chat_id=? AND id NOT IN"
+            " (SELECT id FROM backups WHERE chat_id=?"
+            "  ORDER BY id DESC LIMIT ?)",
+            (chat_id, chat_id, self.MAKS_BACKUP_PER_CHAT),
         )
         self._conn.commit()
 

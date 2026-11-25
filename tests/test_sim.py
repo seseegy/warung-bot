@@ -576,11 +576,11 @@ def test_simulate_bangkrut_tetap_kembalikan_hasil(game_data):
     assert hasil["slot_akhir"]["bangkrut"] is True
 
 
-def test_simulate_diusir_setelah_3_minggu_tunggak(game_data):
-    """Sewa tak terbayar 3 Minggu berturut-turut -> diusir (game :6472)
-    dan bangkrut; sim berhenti di hari itu."""
-    hasil = simulate(_slot_tanpa_penjualan(), game_data, 30, seed=7)
-    assert hasil["diusir"] is True
+def test_simulate_berhenti_saat_bangkrut(game_data):
+    """Bangkrut mengakhiri permainan di game — sim berhenti di hari itu,
+    tidak lanjut sampai diusir berminggu-minggu kemudian."""
+    slot = _slot_tanpa_penjualan()
+    slot["uang"] = 250000
+    hasil = simulate(slot, game_data, 30, seed=7)
     assert hasil["bangkrut"] is True
-    assert hasil["minggu_tunggak"] >= 3
-    assert hasil["hari_akhir"] <= 22  # diusir pada hari sewa ke-3 (hari 21)
+    assert len(hasil["hari"]) < 30

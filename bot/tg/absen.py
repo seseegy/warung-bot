@@ -14,7 +14,7 @@ from telegram.ext import ContextTypes
 
 from ..core import absen as absen_mod
 from . import keyboards as kb
-from .status import format_rupiah
+from .status import diizinkan, format_rupiah
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def _status_teks(store, chat_id: int) -> str:
         f"(siklus 1-30, berulang).",
         "Bonus otomatis: hari ke-3 = 2x, ke-7 = 3x, ke-30 = 10x.",
         "Uang masuk otomatis setiap siklus harian game diterapkan "
-        "(otomatis/Target/Kejar).",
+        "(otomatis/Target/Kejar/Kerja).",
         "Matikan dengan /absen_set 0 · Reset siklus dengan /absen_reset.",
     ]
     return "\n".join(baris)
@@ -44,7 +44,7 @@ def _status_teks(store, chat_id: int) -> str:
 async def cmd_absen(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/absen — lihat status absen harian."""
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     store = context.bot_data["store"]
     await message.reply_text(
@@ -54,7 +54,7 @@ async def cmd_absen(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_absen_set(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/absen_set <nominal> — atur hadiah absen (0 = mati)."""
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     store = context.bot_data["store"]
     args = (context.args or []) if hasattr(context, "args") else []
@@ -92,7 +92,7 @@ async def cmd_absen_set(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_absen_reset(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/absen_reset — kembalikan siklus absen ke hari ke-1."""
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     store = context.bot_data["store"]
     store.set_absen_hari_ke(message.chat_id, 0)

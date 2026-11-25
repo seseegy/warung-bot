@@ -268,7 +268,7 @@ async def on_text_cepat(update, context) -> bool:
     _audit(pending, aksi, ringkasan.replace("\n", " "))
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
-        teks, reply_markup=kb.confirm_keyboard("cepat"))
+        teks, reply_markup=kb.confirm_keyboard("cepat", pending.get("token")))
     return True
 
 
@@ -299,7 +299,7 @@ async def cmd_ngopi(update, context) -> None:
     _audit(pending, "ngopi", ringkasan.replace("\n", " "))
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
-        teks, reply_markup=kb.confirm_keyboard("cepat"))
+        teks, reply_markup=kb.confirm_keyboard("cepat", pending.get("token")))
 
 
 async def cmd_tutup(update, context) -> None:
@@ -342,7 +342,7 @@ async def cmd_tutup(update, context) -> None:
     _audit(pending, "tutup", ringkasan.replace("\n", " "))
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
-        teks, reply_markup=kb.confirm_keyboard("cepat"))
+        teks, reply_markup=kb.confirm_keyboard("cepat", pending.get("token")))
 
 
 # -- /slot -------------------------------------------------------------------
@@ -507,7 +507,7 @@ async def _tampilkan_rollback_langkah2(query, context, backup_id: int) -> None:
     _audit(pending, "rollback",
            f"pulihkan arsip {arsip['tanggal']} v{arsip['versi']}")
     context.user_data[PENDING_KEY] = pending
-    await _edit(query, teks, kb.confirm_keyboard("rollback"))
+    await _edit(query, teks, kb.confirm_keyboard("rollback", pending.get("token")))
 
 
 # -- /rencana, /statistik ------------------------------------------------------
@@ -741,12 +741,29 @@ async def on_callback_cepat(update, context, query, data_str: str) -> None:
     await _edit(query, "Tombol tidak dikenal.", kb.main_menu())
 
 
-class _UpdateTiruan:
-    """Update tiruan supaya handler perintah bisa dipakai dari tombol.
+class _PesanTiruan:
+    """Pesan tiruan: reply_text mengedit pesan tombol, bukan pesan baru.
 
-    ``query.message`` di PTB sudah punya ``reply_text`` — cukup
-    membungkusnya sebagai ``update.message``.
+    Pola bot satu pesan per layar — handler perintah yang dipanggil
+    dari tombol harus mengedit pesan yang sama.
     """
 
     def __init__(self, message) -> None:
-        self.message = message
+        self._message = message
+        self.chat_id = message.chat_id
+        self.text = getattr(message, "text", None)
+
+    async def reply_text(self, teks: str, reply_markup=None, **kwargs):
+        try:
+            return await self._message.edit_text(
+                teks, reply_markup=reply_markup, **kwargs)
+        except Exception:  # noqa: BLE001 - pesan sama/sudah terhapus
+            return await self._message.reply_text(
+                teks, reply_markup=reply_markup, **kwargs)
+
+
+class _UpdateTiruan:
+    """Update tiruan supaya handler perintah bisa dipakai dari tombol."""
+
+    def __init__(self, message) -> None:
+        self.message = _PesanTiruan(message)

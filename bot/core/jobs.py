@@ -408,9 +408,11 @@ async def _cek_peringkat(app, chat_id: int, id_papan: str, slot: dict) -> None:
     baru = hasil["peringkat"]
     lama_row = store.get_peringkat(chat_id, "semua")
     lama = lama_row["peringkat"] if lama_row else None
-    store.save_peringkat(chat_id, "semua", baru, hasil["jumlah_warung"])
     if baru is None:
+        # Peringkat tidak diketahui tidak boleh menimpa peringkat
+        # valid yang tersimpan.
         return
+    store.save_peringkat(chat_id, "semua", baru, hasil["jumlah_warung"])
     arah = papan_mod.bandingkan_peringkat(lama, baru)
     if arah == "turun":
         atas = hasil["atas"]
@@ -457,6 +459,11 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
         scheduler = app.bot_data.get("scheduler")
         if scheduler is not None:
             hapus_siklus(scheduler, chat_id)
+        return
+    if store.get_baca_saja(chat_id):
+        # Baca saja: lewati siklus tanpa mengubah apa pun; otomatisasi
+        # tetap nyala dan lanjut lagi setelah baca saja dimatikan.
+        log.info("siklus otomatis chat %s dilewati: mode baca saja", chat_id)
         return
     tier = store.get_tier(chat_id)
     batas = store.get_batas_harian(chat_id)
@@ -674,6 +681,9 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
         if scheduler is not None:
             hapus_mode_target(scheduler, chat_id)
         return
+    if store.get_baca_saja(chat_id):
+        log.info("mode target chat %s dilewati: mode baca saja", chat_id)
+        return
     target_tingkat = int(mode["target_tingkat"])
     tier = store.get_tier(chat_id)
     batas = store.get_batas_harian(chat_id)
@@ -707,7 +717,6 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
                                           tier, batas,
                                           absen_nominal=absen["nominal"],
                                           absen_hari_ke=absen["hari_ke"])
-    siklus_baru = store.tambah_siklus_target(chat_id)
 
     pending = {
         "kind": "siklus",
@@ -732,6 +741,9 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
     if status != "ok":
         log.warning("mode target chat %s gagal: %s", chat_id, teks)
         return
+    # Hitungan siklus hanya maju setelah upload benar-benar berhasil
+    # (sama seperti Kejar/Kerja) — siklus gagal tidak memakan kuota.
+    siklus_baru = store.tambah_siklus_target(chat_id)
 
     # Sukses: catat audit untuk aksi yang membelanjakan uang + penjaga
     # saldo (awal siklus + yang terjadi di dalam siklus).
@@ -854,6 +866,9 @@ async def jalankan_mode_kejar(app, chat_id: int) -> None:
         scheduler = app.bot_data.get("scheduler")
         if scheduler is not None:
             hapus_mode_kejar(scheduler, chat_id)
+        return
+    if store.get_baca_saja(chat_id):
+        log.info("mode kejar chat %s dilewati: mode baca saja", chat_id)
         return
     target_peringkat = int(mode["target_peringkat"])
     tier = store.get_tier(chat_id)
@@ -1082,6 +1097,9 @@ async def jalankan_mode_kerja(app, chat_id: int) -> None:
         if scheduler is not None:
             hapus_mode_kerja(scheduler, chat_id)
         return
+    if store.get_baca_saja(chat_id):
+        log.info("mode kerja chat %s dilewati: mode baca saja", chat_id)
+        return
     tier = store.get_tier(chat_id)
     batas = store.get_batas_harian(chat_id)
     ctx = SimpleNamespace(bot_data=app.bot_data)
@@ -1248,7 +1266,7 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
     "dihapus": n} — jumlah job yang DIUBAH (bukan yang sudah benar).
     """
     hasil = {"laporan": 0, "otomatis": 0, "target": 0, "kejar": 0,
-             "dihapus": 0}
+             "kerja": 0, "dihapus": 0}
     ingin_laporan = {
         int(r["chat_id"]): int(r["jam"])
         for r in store.all_jadwal() if r.get("aktif")
@@ -1297,6 +1315,17 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
             hasil["kejar"] += 1
         except Exception:
             log.exception("gagal menyinkronkan mode kejar chat %s", chat_id)
+    ingin_kerja = {
+        int(r["chat_id"]) for r in store.all_mode_kerja()
+    }
+    for chat_id in ingin_kerja:
+        if scheduler.get_job(kerja_job_id(chat_id)) is not None:
+            continue  # Sudah benar — dibiarkan.
+        try:
+            atur_mode_kerja(scheduler, app, chat_id)
+            hasil["kerja"] += 1
+        except Exception:
+            log.exception("gagal menyinkronkan mode kerja chat %s", chat_id)
     for job in list(scheduler.get_jobs()):
         jid = str(job.id or "")
         try:
@@ -1314,6 +1343,9 @@ def sinkronkan_semua(scheduler: AsyncIOScheduler, app, store) -> dict:
             hasil["dihapus"] += 1
         elif jid.startswith("kejar:") and cid not in ingin_kejar:
             hapus_mode_kejar(scheduler, cid)
+            hasil["dihapus"] += 1
+        elif jid.startswith("kerja:") and cid not in ingin_kerja:
+            hapus_mode_kerja(scheduler, cid)
             hasil["dihapus"] += 1
     return hasil
 
@@ -1426,9 +1458,9 @@ async def notifikasi_pasar_senin(app) -> None:
             pasaran_lama = {}
         perubahan = monitor_mod.bandingkan_pasaran(
             pasaran_lama, pasaran_baru, data, state["slot"])
-        store.meta_set(chat_id, "pasaran",
-                       json.dumps(pasaran_baru, ensure_ascii=False))
         if not perubahan:
+            store.meta_set(chat_id, "pasaran",
+                           json.dumps(pasaran_baru, ensure_ascii=False))
             continue
         baris = ["Harga pasar minggu ini berubah:"]
         for p in perubahan:
@@ -1461,6 +1493,10 @@ async def notifikasi_pasar_senin(app) -> None:
                         callback_data="sim:harga_pasar")]])
             await app.bot.send_message(chat_id=chat_id, text="\n".join(baris),
                                        reply_markup=markup)
+            # Snapshot hanya maju setelah pesan benar-benar terkirim —
+            # kiriman gagal tidak boleh menghilangkan pengingat minggu ini.
+            store.meta_set(chat_id, "pasaran",
+                           json.dumps(pasaran_baru, ensure_ascii=False))
         except Exception:
             log.exception("gagal mengirim notifikasi pasar ke chat %s",
                           chat_id)

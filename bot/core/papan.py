@@ -83,7 +83,10 @@ def parse_papan(data: dict, kode_saya: str, pembeli_saya: int | None) -> dict:
     daftar = data.get("daftar", [])
     if not isinstance(daftar, list):
         daftar = []
-    jumlah_warung = int(data.get("jumlah_warung", 0) or 0)
+    try:
+        jumlah_warung = int(data.get("jumlah_warung", 0) or 0)
+    except (TypeError, ValueError):
+        jumlah_warung = 0
     idx_saya: int | None = None
     for i, b in enumerate(daftar):
         if isinstance(b, (list, tuple)) and len(b) > 2 and str(b[2]) == kode_saya:
@@ -106,7 +109,7 @@ def parse_papan(data: dict, kode_saya: str, pembeli_saya: int | None) -> dict:
             posisi = len(daftar)
             for i, b in enumerate(daftar):
                 try:
-                    if pembeli_saya > int(b[1]):
+                    if pembeli_saya >= int(b[1]):
                         posisi = i
                         break
                 except (TypeError, ValueError, IndexError):

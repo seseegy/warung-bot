@@ -231,6 +231,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("absen", absen_tg.cmd_absen))
     app.add_handler(CommandHandler("absen_set", absen_tg.cmd_absen_set))
     app.add_handler(CommandHandler("absen_reset", absen_tg.cmd_absen_reset))
+    # Unlimited: set nilai save ke angka besar / buka semua.
+    from .tg import unlimited as unlimited_tg
+    app.add_handler(CommandHandler("unlimited", unlimited_tg.cmd_unlimited))
     app.add_handler(CallbackQueryHandler(handlers.on_callback))
     app.add_handler(MessageHandler(filters.Document.ALL, handlers.on_document))
     app.add_handler(

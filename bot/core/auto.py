@@ -192,8 +192,13 @@ def sewa_per_minggu(slot: dict, cerita: dict) -> int:
     tingkat = int(slot.get("tingkat", 0))
     sewa = int(daftar[max(0, min(tingkat, len(daftar) - 1))])
     kunci = slot.get("sewa_kunci", {}) or {}
-    if int(kunci.get("minggu", -1)) == minggu_sewa_berjalan(slot):
+    minggu = minggu_sewa_berjalan(slot)
+    if int(kunci.get("minggu", -1)) == minggu:
         return min(int(kunci.get("jumlah", sewa)), sewa)
+    # Game menetapkan kunci minggu berjalan saat sewa_per_minggu()
+    # dipanggil (game_state.gd:6253) — cermin di sini supaya kenaikan
+    # level di tengah minggu tidak menaikkan sewa minggu yang sama.
+    slot["sewa_kunci"] = {"minggu": minggu, "jumlah": sewa}
     return sewa
 
 
@@ -245,13 +250,21 @@ def bayar_misi(slot: dict, data) -> tuple[dict, dict | None]:
     if str(s.get("misi_status", "")) != "aktif":
         return s, None
     kurang = max(int(s.get("target_bab", 0)) - int(s.get("kiriman_bab", 0)), 0)
+    if str(sim_mod._data_bab(s, data).get("jenis", "kirim")) == "hadiah":
+        # Bab hadiah: game menambah uang sebesar target dan langsung
+        # menyelesaikan bab (game_state.gd:4426) — bukan pembayaran.
+        s["uang"] = int(s.get("uang", 0)) + kurang
+        s["kiriman_bab"] = int(s.get("target_bab", 0))
+        sim_mod.selesaikan_bab(s, data)
+        return s, {"aksi": "bayar_misi", "ok": True, "jumlah": -kurang,
+                   "hadiah": True}
     if kurang <= 0:
         return s, None
     if int(s.get("uang", 0)) - kurang < CADANGAN_UANG_MIN:
         return s, None
     s["uang"] = int(s["uang"]) - kurang
     s["kiriman_bab"] = int(s.get("target_bab", 0))
-    s["misi_status"] = "lunas"
+    sim_mod.selesaikan_bab(s, data)
     return s, {"aksi": "bayar_misi", "ok": True, "jumlah": kurang}
 
 
@@ -270,12 +283,17 @@ def bayar_sewa(slot: dict, cerita: dict) -> dict:
     if int(slot.get("sewa_selesai_hari", 0)) == hari:
         return {"ok": False, "alasan": "sewa hari ini sudah selesai"}
     tagihan = tagihan_sewa(slot, cerita)
-    if int(slot.get("uang", 0)) + int(slot.get("saldo_digital", 0) or 0) < tagihan:
+    sewa_minggu = sewa_per_minggu(slot, cerita)
+    # Kelebihan cicilan dikembalikan sebelum pembayaran, jadi ia ikut
+    # tersedia untuk menutup tagihan (tunggakan).
+    kelebihan_cicil = max(
+        int(slot.get("sewa_cicil", 0) or 0) - sewa_minggu, 0)
+    tersedia = (int(slot.get("uang", 0))
+                + int(slot.get("saldo_digital", 0) or 0) + kelebihan_cicil)
+    if tersedia < tagihan:
         return {"ok": False, "alasan": "uang tidak cukup",
                 "tagihan": tagihan,
-                "kurang": tagihan - int(slot.get("uang", 0))
-                - int(slot.get("saldo_digital", 0) or 0)}
-    sewa_minggu = sewa_per_minggu(slot, cerita)
+                "kurang": tagihan - tersedia}
     dicicil = min(int(slot.get("sewa_cicil", 0) or 0), sewa_minggu)
     if int(slot.get("sewa_cicil", 0) or 0) > dicicil:
         kembali = int(slot.get("sewa_cicil", 0)) - dicicil
@@ -503,6 +521,18 @@ def auto_beli_stok(slot: dict, data: GameData) -> tuple[dict, list]:
                        tagihan_sewa(slot, data.cerita) + CADANGAN_UANG_MIN)
     else:
         cadangan = CADANGAN_UANG_MIN
+    # Restock darurat: rak benar-benar kosong berarti tidak ada
+    # pemasukan sama sekali — menahan cadangan hanya membuat toko
+    # berputar tanpa penjualan (jalan buntu Rp50.000). Bila total stok
+    # fisik terbuka nol, cadangan dilonggarkan ke 0 untuk siklus ini
+    # supaya uang yang ada dipakai membeli stok yang bisa dijual.
+    total_stok_awal = sum(
+        int(stok.get(i, 0)) + int(kiriman.get(i, 0))
+        + int(grosir.get(i, 0))
+        for i in data.urutan_barang
+        if data.katalog[i].get("jenis") == "fisik" and i in terbuka)
+    if total_stok_awal <= 0 and int(slot.get("uang", 0)) <= CADANGAN_UANG_MIN:
+        cadangan = 0
     for item_id in data.urutan_barang:
         item = data.katalog[item_id]
         if item.get("jenis") != "fisik" or item_id not in terbuka:
@@ -803,12 +833,15 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
     # auto_isi_tugas mengisi progres langsung (tanpa penjualan) sehingga
     # level tidak pernah naik walau progres penuh + upgrade + misi beres.
     # Panggil eksplisit di sini agar hadiah cair + progres reset + level
-    # naik — persis seperti game mengecek tugas.
+    # naik — persis seperti game mengecek tugas. Langkah ini bagian dari
+    # otomasi tugas, jadi sama seperti langkah 4 ia hanya untuk tier
+    # Standar ke atas (Pemula tidak mengisi/menaikkan tugas otomatis).
     tingkat_sebelum = int(slot.get("tingkat", 0))
-    while sim_mod._cek_tugas(slot, data):
-        # Bisa naik beberapa level sekaligus bila progres sengaja penuh
-        # (mis. /tugas_selesai) — ulangi sampai stabil.
-        pass
+    if tier >= TIER_STANDAR:
+        while sim_mod._cek_tugas(slot, data):
+            # Bisa naik beberapa level sekaligus bila progres sengaja penuh
+            # (mis. /tugas_selesai) — ulangi sampai stabil.
+            pass
     if int(slot.get("tingkat", 0)) != tingkat_sebelum:
         aksi.append({"aksi": "naik_level", "ok": True,
                      "dari": tingkat_sebelum + 1,

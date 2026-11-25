@@ -30,11 +30,41 @@ from ..core import target as target_mod
 from ..core import tiers as tiers_mod
 from ..core.cloud import CloudError, NoCloudData, SessionExpired
 from . import keyboards as kb
-from .status import NotLinked, fetch_latest_state, format_rupiah
+from .status import NotLinked, diizinkan, fetch_latest_state, format_rupiah
 
 log = logging.getLogger(__name__)
 
 TIER_BANDINGKAN_FITUR = "rencana_level"
+
+
+def _matikan_otomatisasi_lain(store, scheduler, chat_id: int,
+                              kecuali: str, alasan: str) -> None:
+    """Satu otomatisasi saja yang jalan: matikan semua mode lain.
+
+    Dipakai setiap jalur menyalakan otomatisasi (siklus harian,
+    Target, Kejar, Kerja, konfirmasi tier) supaya tidak ada dua
+    mode yang menulis save bersamaan.
+    """
+    if kecuali != "otomatis" and store.get_otomatis(chat_id):
+        store.set_otomatis(chat_id, False)
+        if scheduler is not None:
+            jobs_mod.hapus_siklus(scheduler, chat_id)
+        store.log_audit(chat_id, "otomatis_mati", alasan)
+    if kecuali != "target" and store.get_mode_target(chat_id) is not None:
+        store.hapus_mode_target(chat_id)
+        if scheduler is not None:
+            jobs_mod.hapus_mode_target(scheduler, chat_id)
+        store.log_audit(chat_id, "mode_target_berhenti", alasan)
+    if kecuali != "kejar" and store.get_mode_kejar(chat_id) is not None:
+        store.hapus_mode_kejar(chat_id)
+        if scheduler is not None:
+            jobs_mod.hapus_mode_kejar(scheduler, chat_id)
+        store.log_audit(chat_id, "mode_kejar_berhenti", alasan)
+    if kecuali != "kerja" and store.get_mode_kerja(chat_id) is not None:
+        store.hapus_mode_kerja(chat_id)
+        if scheduler is not None:
+            jobs_mod.hapus_mode_kerja(scheduler, chat_id)
+        store.log_audit(chat_id, "mode_kerja_berhenti", alasan)
 
 
 def _fitur_tier(n: int) -> list[str]:
@@ -66,7 +96,7 @@ def _keyboard_tier(tier_sekarang: int) -> InlineKeyboardMarkup:
 
 async def cmd_tier(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     store = context.bot_data["store"]
     if store.get_user(message.chat_id) is None:
@@ -91,7 +121,7 @@ async def cmd_otomatis(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     perintah hanya untuk meta-action.
     """
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     store = context.bot_data["store"]
     if store.get_user(message.chat_id) is None:
@@ -182,7 +212,7 @@ def _keyboard_pilih_level() -> InlineKeyboardMarkup:
 
 async def cmd_laporan(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     await _kirim_laporan(message, context, hari=1)
 
@@ -210,11 +240,11 @@ async def _kirim_laporan(message, context, hari: int) -> None:
         return
     label = "harian" if hari == 1 else "mingguan"
     sejak = int((datetime.now(auto_mod.WIB) - timedelta(days=hari)).timestamp())
-    audit = store.get_audit(chat_id, sejak)
+    audit = store.get_audit(chat_id, sejak, limit=10000)
     ringkasan = state["ringkasan"]
     slot = state["slot"]
     baris = [
-        f"Laporan {label} — {ringkasan.get('nama') or 'warung'} "
+        f"Laporan {label} — {ringkasan.get('nama_warung') or 'warung'} "
         f"(level {ringkasan.get('level')}, hari {ringkasan.get('hari')})",
         f"Uang: {format_rupiah(ringkasan['uang'])}",
         f"Pelanggan dilayani total: {int(slot.get('total_pembeli', 0))}",
@@ -246,7 +276,7 @@ async def _kirim_laporan(message, context, hari: int) -> None:
 
 async def cmd_bandingkan(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     store = context.bot_data["store"]
     if store.get_user(message.chat_id) is None:
@@ -515,17 +545,9 @@ async def _tangani_target(query, context, chat_id: int, data: str) -> bool:
                 chat_id, "jaga_saldo",
                 f"+{format_rupiah(tambah_jaga)} (rencana saat mulai mode "
                 "target — diterapkan pada siklus pertama)")
-        # Satu otomatisasi saja: matikan siklus harian + Mode Kejar bila nyala.
-        if store.get_otomatis(chat_id):
-            store.set_otomatis(chat_id, False)
-            if scheduler is not None:
-                jobs_mod.hapus_siklus(scheduler, chat_id)
-        if store.get_mode_kejar(chat_id) is not None:
-            store.hapus_mode_kejar(chat_id)
-            if scheduler is not None:
-                jobs_mod.hapus_mode_kejar(scheduler, chat_id)
-            store.log_audit(chat_id, "mode_kejar_berhenti",
-                            "diganti mode target")
+        # Satu otomatisasi saja: matikan mode lain (termasuk Kerja).
+        _matikan_otomatisasi_lain(store, scheduler, chat_id,
+                                  "target", "diganti mode target")
         store.set_mode_target(chat_id, target)
         if scheduler is not None:
             jobs_mod.atur_mode_target(scheduler, context.application, chat_id)
@@ -616,23 +638,9 @@ async def _tangani_kejar(query, context, chat_id: int, data: str) -> bool:
         return True
 
     if data == "kerja:mulai":
-        # Satu mode kerja saja: matikan Target & Kejar bila nyala.
-        if store.get_mode_target(chat_id) is not None:
-            store.hapus_mode_target(chat_id)
-            if scheduler is not None:
-                jobs_mod.hapus_mode_target(scheduler, chat_id)
-            store.log_audit(chat_id, "mode_target_berhenti", "ganti_mode_kerja")
-        if store.get_mode_kejar(chat_id) is not None:
-            store.hapus_mode_kejar(chat_id)
-            if scheduler is not None:
-                jobs_mod.hapus_mode_kejar(scheduler, chat_id)
-            store.log_audit(chat_id, "mode_kejar_berhenti", "ganti_mode_kerja")
-        # Siklus otomatis harian juga dimatikan (jangan dobel jalan).
-        if store.get_otomatis(chat_id):
-            store.set_otomatis(chat_id, False)
-            if scheduler is not None:
-                jobs_mod.hapus_siklus(scheduler, chat_id)
-            store.log_audit(chat_id, "otomatis_mati", "ganti_mode_kerja")
+        # Satu otomatisasi saja: matikan mode lain.
+        _matikan_otomatisasi_lain(store, scheduler, chat_id,
+                                  "kerja", "ganti_mode_kerja")
         store.set_mode_kerja(chat_id)
         if scheduler is not None:
             jobs_mod.atur_mode_kerja(scheduler, context.application, chat_id)
@@ -814,17 +822,9 @@ async def _tangani_kejar(query, context, chat_id: int, data: str) -> bool:
                 reply_markup=_keyboard_pilih_peringkat(),
             )
             return True
-        # Satu otomatisasi saja: matikan siklus harian + Mode Target.
-        if store.get_otomatis(chat_id):
-            store.set_otomatis(chat_id, False)
-            if scheduler is not None:
-                jobs_mod.hapus_siklus(scheduler, chat_id)
-        if store.get_mode_target(chat_id) is not None:
-            store.hapus_mode_target(chat_id)
-            if scheduler is not None:
-                jobs_mod.hapus_mode_target(scheduler, chat_id)
-            store.log_audit(chat_id, "mode_target_berhenti",
-                            "diganti mode kejar")
+        # Satu otomatisasi saja: matikan mode lain (termasuk Kerja).
+        _matikan_otomatisasi_lain(store, scheduler, chat_id,
+                                  "kejar", "diganti mode kejar")
         store.set_mode_kejar(chat_id, target, batas)
         if scheduler is not None:
             jobs_mod.atur_mode_kejar(scheduler, context.application, chat_id)
@@ -861,6 +861,20 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
     chat_id = query.message.chat_id if query.message else 0
     store = context.bot_data["store"]
 
+    # Mode baca saja: aktivasi otomatisasi apa pun ditolak di pintu
+    # masuk (backend execute_upload juga menolak upload-nya).
+    _aktivasi = (
+        data in ("otomatis:nyala", "kerja:mulai")
+        or data.startswith("target:mulai")
+        or data.startswith("kejar:mulai")
+        or data.startswith("tier:konfirm"))
+    if _aktivasi and store.get_baca_saja(chat_id):
+        await query.edit_message_text(
+            "Mode baca saja aktif — otomatisasi tidak bisa dinyalakan. "
+            "Matikan mode baca saja dulu di Pengaturan.",
+            reply_markup=kb.back_to_menu())
+        return True
+
     if data.startswith("tier:"):
         bagian = data.split(":")
         if len(bagian) == 2 and bagian[1].isdigit():
@@ -872,7 +886,7 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
             teks = (
                 f"Aktifkan Tier {n} — {tiers_mod.TIER_NAMA[n]}?\n\n"
                 f"{tiers_mod.TIER_DESKRIPSI[n]}\n\n"
-                "Yang akan berjalan otomatis tiap hari pada "
+                "Fitur tier ini dipakai siklus otomatis harian pada "
                 f"{store.get_jam_otomatis(chat_id):02d}.00 WIB:\n"
                 + "\n".join(f"- {f}" for f in _fitur_tier(n))
                 + "\n\nGame harus TERTUTUP saat siklus jalan. "
@@ -907,6 +921,11 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
                 await query.edit_message_text("Tier tidak dikenal.")
                 return True
             store.set_tier(chat_id, n)
+            # Konfirmasi tier menyalakan siklus harian: mode lain
+            # (Target/Kejar/Kerja) harus mati lebih dulu.
+            _matikan_otomatisasi_lain(
+                store, context.bot_data.get("scheduler"), chat_id,
+                "otomatis", "diganti siklus harian")
             store.set_otomatis(chat_id, True)
             scheduler = context.bot_data.get("scheduler")
             if scheduler is not None:
@@ -926,22 +945,10 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
 
     if data.startswith("otomatis:"):
         if data == "otomatis:nyala":
-            # Satu otomatisasi saja yang jalan: Mode Target dan Mode
-            # Kejar dimatikan.
-            if store.get_mode_target(chat_id) is not None:
-                store.hapus_mode_target(chat_id)
-                scheduler = context.bot_data.get("scheduler")
-                if scheduler is not None:
-                    jobs_mod.hapus_mode_target(scheduler, chat_id)
-                store.log_audit(chat_id, "mode_target_berhenti",
-                                "diganti siklus harian")
-            if store.get_mode_kejar(chat_id) is not None:
-                store.hapus_mode_kejar(chat_id)
-                scheduler = context.bot_data.get("scheduler")
-                if scheduler is not None:
-                    jobs_mod.hapus_mode_kejar(scheduler, chat_id)
-                store.log_audit(chat_id, "mode_kejar_berhenti",
-                                "diganti siklus harian")
+            # Satu otomatisasi saja yang jalan: mode lain dimatikan.
+            _matikan_otomatisasi_lain(
+                store, context.bot_data.get("scheduler"), chat_id,
+                "otomatis", "diganti siklus harian")
             store.set_otomatis(chat_id, True)
             scheduler = context.bot_data.get("scheduler")
             if scheduler is not None:
@@ -1066,11 +1073,11 @@ async def _edit_laporan(query, context, hari: int) -> None:
         return
     label = "harian" if hari == 1 else "mingguan"
     sejak = int((datetime.now(auto_mod.WIB) - timedelta(days=hari)).timestamp())
-    audit = store.get_audit(chat_id, sejak)
+    audit = store.get_audit(chat_id, sejak, limit=10000)
     ringkasan = state["ringkasan"]
     slot = state["slot"]
     baris = [
-        f"Laporan {label} — {ringkasan.get('nama') or 'warung'} "
+        f"Laporan {label} — {ringkasan.get('nama_warung') or 'warung'} "
         f"(level {ringkasan.get('level')}, hari {ringkasan.get('hari')})",
         f"Uang: {format_rupiah(ringkasan['uang'])}",
         f"Pelanggan dilayani total: {int(slot.get('total_pembeli', 0))}",

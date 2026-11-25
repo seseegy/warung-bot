@@ -39,7 +39,7 @@ def statistik_slot(slot: dict, data: GameData) -> dict:
             continue
         try:
             jumlah, omzet, laba = int(r[0]), int(r[1]), int(r[2])
-        except (TypeError, ValueError, IndexError):
+        except (TypeError, ValueError, IndexError, KeyError):
             continue
         if jumlah <= 0 and omzet <= 0:
             continue
@@ -94,8 +94,12 @@ def statistik_slot(slot: dict, data: GameData) -> dict:
         except (TypeError, ValueError):
             return 0
 
+    try:
+        hari_slot = int(slot.get("hari", 1) or 1)
+    except (TypeError, ValueError):
+        hari_slot = 1
     return {
-        "hari": int(slot.get("hari", 1) or 1),
+        "hari": hari_slot,
         "hari_ini": {
             "omzet": _int("omzet"), "laba": _int("laba"),
             "terjual": _int("terjual"), "dilayani": _int("dilayani"),

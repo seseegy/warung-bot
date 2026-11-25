@@ -51,7 +51,7 @@ async def show_cara_ambil(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     if query is None:
         return
-    await query.answer()
+    # Sudah dijawab handlers.on_callback; answer kedua ditolak Telegram.
     await query.edit_message_text(CARA_AMBIL, reply_markup=back_to_menu())
 
 
@@ -67,8 +67,9 @@ async def receive_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             reply_markup=back_to_menu(),
         )
         return
-    context.user_data.pop("awaiting", None)
-
+    # awaiting TIDAK dikeluarkan di sini: file yang salah harus bisa
+    # langsung diganti file koreksi tanpa /link ulang. Ia dikeluarkan
+    # setelah file valid tersimpan.
     doc = message.document
     if not (doc.file_name or "").endswith(".json"):
         await message.reply_text(
@@ -116,6 +117,7 @@ async def receive_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     session.setdefault("versi", 0)
     session.setdefault("sidik", "")
     store.save_user(chat_id, session)
+    context.user_data.pop("awaiting", None)
 
     peringatan = ""
     if warnings:
@@ -126,6 +128,7 @@ async def receive_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         cloud_data, session = await cloud.fetch_cloud(session)
     except SessionExpired:
         store.delete_user(chat_id)
+        context.user_data["awaiting"] = "akun_json"
         await message.reply_text(
             "Token di file ini sudah mati (server menolak refresh). "
             "Login ulang akun di game, lalu kirim akun.json yang baru.",

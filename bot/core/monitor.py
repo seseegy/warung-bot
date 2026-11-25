@@ -100,8 +100,15 @@ def bandingkan_pasaran(pasaran_lama: dict, pasaran_baru: dict,
             saran = (f"Pasar turun — pertimbangkan turunkan harga jual "
                      f"{nama} ke {harga_baru}.")
         elif arah == "baru":
-            saran = (f"Harga pasar {nama} naik — pertimbangkan naikkan "
-                     f"harga jual ke {harga_baru}.")
+            if f_baru is not None and f_baru < 1:
+                saran = (f"Harga pasar {nama} turun — pertimbangkan "
+                         f"turunkan harga jual ke {harga_baru}.")
+            elif f_baru is not None and f_baru > 1:
+                saran = (f"Harga pasar {nama} naik — pertimbangkan "
+                         f"naikkan harga jual ke {harga_baru}.")
+            else:
+                saran = (f"Harga pasar {nama} kini {harga_baru} — "
+                         "sesuaikan harga jual bila perlu.")
         else:
             saran = (f"Harga pasar {nama} kembali normal "
                      f"({harga_baru}) — harga jual bisa dikembalikan.")

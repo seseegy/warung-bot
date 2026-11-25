@@ -524,7 +524,10 @@ def create_app(
         chat_id = int(session["chat_id"])
         _wajib_tulis(chat_id)
         state = await _state(chat_id)
-        pending, _teks = build_pending_tugas(state, tugas_data)
+        try:
+            pending, _teks = build_pending_tugas(state, tugas_data)
+        except save_mod.TaskError as exc:
+            raise ApiError(409, "tugas_tidak_bisa", str(exc))
         teks, status = await execute_upload(_ctx(), chat_id, pending)
         return _hasil_upload(teks, status)
 

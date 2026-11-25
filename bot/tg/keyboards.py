@@ -52,7 +52,7 @@ def main_menu(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
             InlineKeyboardButton("Stok", callback_data="sim:stok"),
         ],
         [
-            InlineKeyboardButton("Kerja 24/7", callback_data="tier:menu"),
+            InlineKeyboardButton("Otomatis", callback_data="tier:menu"),
             InlineKeyboardButton("Laporan", callback_data="laporan:harian"),
         ],
         [
@@ -62,6 +62,9 @@ def main_menu(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("Mode Cuan", callback_data="cuan:menu"),
             InlineKeyboardButton("Absen Harian", callback_data="absen:menu"),
+        ],
+        [
+            InlineKeyboardButton("Unlimited", callback_data="unlimited:menu"),
         ],
     ]
     return InlineKeyboardMarkup(baris)
@@ -121,22 +124,28 @@ def money_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def confirm_keyboard(aksi: str) -> InlineKeyboardMarkup:
-    """Konfirmasi sebelum aksi tulis. ``aksi`` = id aksi tertunda."""
+def confirm_keyboard(aksi: str, token: str | None = None) -> InlineKeyboardMarkup:
+    """Konfirmasi sebelum aksi tulis. ``aksi`` = id aksi tertunda.
+
+    ``token`` mengikat tombol ke pending tertentu (konfirm:ya:aksi:token)
+    supaya tombol lama tidak mengeksekusi pending yang lebih baru.
+    """
+    akhiran = f":{token}" if token else ""
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    "Ya, Upload", callback_data=f"{CB_KONFIRM}:ya:{aksi}"
+                    "Ya, Upload", callback_data=f"{CB_KONFIRM}:ya:{aksi}{akhiran}"
                 ),
-                InlineKeyboardButton("Batal", callback_data=f"{CB_KONFIRM}:tidak:{aksi}"),
+                InlineKeyboardButton("Batal", callback_data=f"{CB_KONFIRM}:tidak:{aksi}{akhiran}"),
             ],
         ]
     )
 
 
-def conflict_keyboard() -> InlineKeyboardMarkup:
-    """Pilihan saat server menjawab bentrok."""
+def conflict_keyboard(token: str | None = None) -> InlineKeyboardMarkup:
+    """Pilihan saat server menjawab bentrok (timpa terikat token pending)."""
+    akhiran = f":{token}" if token else ""
     return InlineKeyboardMarkup(
         [
             [
@@ -146,7 +155,8 @@ def conflict_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    "Timpa dengan Punya Saya", callback_data=f"{CB_BENTROK}:timpa"
+                    "Timpa dengan Punya Saya",
+                    callback_data=f"{CB_BENTROK}:timpa{akhiran}"
                 ),
             ],
         ]
@@ -168,15 +178,18 @@ def link_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def unlink_confirm_keyboard() -> InlineKeyboardMarkup:
+def unlink_confirm_keyboard(token: str | None = None) -> InlineKeyboardMarkup:
+    akhiran = f":{token}" if token else ""
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    "Ya, Hapus Semua", callback_data=f"{CB_KONFIRM}:ya:unlink"
+                    "Ya, Hapus Semua",
+                    callback_data=f"{CB_KONFIRM}:ya:unlink{akhiran}"
                 ),
                 InlineKeyboardButton(
-                    "Batal", callback_data=f"{CB_KONFIRM}:tidak:unlink"
+                    "Batal",
+                    callback_data=f"{CB_KONFIRM}:tidak:unlink{akhiran}"
                 ),
             ],
         ]

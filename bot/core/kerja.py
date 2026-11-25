@@ -29,9 +29,21 @@ def alasan_berhenti(slot: dict, siklus: int) -> str | None:
 
 
 def total_stok(slot: dict) -> int:
-    """Total unit stok barang fisik."""
+    """Total unit stok barang fisik (tahan nilai rusak)."""
     stok = slot.get("stok", {}) or {}
-    return sum(int(v) for v in stok.values() if int(v) > 0)
+    if not isinstance(stok, dict):
+        return 0
+    total = 0
+    for v in stok.values():
+        if isinstance(v, bool):
+            continue
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            total += n
+    return total
 
 
 TEKS_BERHENTI = {

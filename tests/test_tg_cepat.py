@@ -298,7 +298,7 @@ async def test_rollback_langkah2_membuat_pending_tanpa_upload(
     markup = query.edit_message_text.call_args[1]["reply_markup"]
     data_callback = [b.callback_data for r in markup.inline_keyboard
                      for b in r]
-    assert "konfirm:ya:rollback" in data_callback
+    assert any(d.startswith("konfirm:ya:rollback:") for d in data_callback)
 
 
 async def test_rollback_arsip_rusak_ditolak_di_langkah1(

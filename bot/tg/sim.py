@@ -29,6 +29,7 @@ from .confirm import (
 )
 from .status import (
     NotLinked,
+    diizinkan,
     fetch_latest_state,
     format_rupiah,
 )
@@ -78,25 +79,27 @@ def sim_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def sim_apply_keyboard() -> InlineKeyboardMarkup:
+def sim_apply_keyboard(token: str | None = None) -> InlineKeyboardMarkup:
+    akhiran = f":{token}" if token else ""
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton("Terapkan ke Save",
-                                     callback_data="konfirm:tanya:simulasi"),
-                InlineKeyboardButton("Batal", callback_data="konfirm:tidak:simulasi"),
+                                     callback_data=f"konfirm:tanya:simulasi{akhiran}"),
+                InlineKeyboardButton("Batal", callback_data=f"konfirm:tidak:simulasi{akhiran}"),
             ],
         ]
     )
 
 
-def harga_apply_keyboard() -> InlineKeyboardMarkup:
+def harga_apply_keyboard(token: str | None = None) -> InlineKeyboardMarkup:
+    akhiran = f":{token}" if token else ""
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton("Terapkan Semua Harga",
-                                     callback_data="konfirm:tanya:harga"),
-                InlineKeyboardButton("Batal", callback_data="konfirm:tidak:harga"),
+                                     callback_data=f"konfirm:tanya:harga{akhiran}"),
+                InlineKeyboardButton("Batal", callback_data=f"konfirm:tidak:harga{akhiran}"),
             ],
         ]
     )
@@ -228,7 +231,7 @@ async def _ambil_state(context, chat_id: int):
 
 async def cmd_simulasi(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     state, err = await _ambil_state(context, message.chat_id)
     if err:
@@ -243,21 +246,21 @@ async def cmd_simulasi(update, context) -> None:
 
 async def cmd_harga_terbaik(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     await _jalankan_harga_terbaik(message, context, edit=False)
 
 
 async def cmd_harga_pasar(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     await _jalankan_harga_pasar(message, context, edit=False)
 
 
 async def cmd_stok(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     state, err = await _ambil_state(context, message.chat_id)
     if err:
@@ -271,7 +274,7 @@ async def cmd_stok(update, context) -> None:
 
 async def cmd_jadwal(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     await _tampilkan_jadwal(message, context)
 
@@ -293,7 +296,7 @@ async def _tampilkan_jadwal(message, context) -> None:
 
 async def cmd_kapan_naik(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     state, err = await _ambil_state(context, message.chat_id)
     if err:
@@ -329,7 +332,7 @@ def _format_kapan(hasil: dict, slot: dict) -> str:
 
 async def cmd_roi_upgrade(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     state, err = await _ambil_state(context, message.chat_id)
     if err:
@@ -364,7 +367,7 @@ def _format_roi(hasil: list) -> str:
 
 async def cmd_whatif(update, context) -> None:
     message = update.message
-    if message is None:
+    if message is None or not diizinkan(context, message.chat_id):
         return
     state, err = await _ambil_state(context, message.chat_id)
     if err:
@@ -416,6 +419,9 @@ async def _callback_sim(query, context, data_str: str) -> None:
         except ValueError:
             await _edit(query, "Jumlah hari tidak dikenal.", sim_menu_keyboard())
             return
+        if jumlah_hari not in (1, 3, 7):
+            await _edit(query, "Jumlah hari tidak dikenal.", sim_menu_keyboard())
+            return
         state, err = await _ambil_state(context, chat_id)
         if err:
             await _edit(query, err, kb.back_to_menu())
@@ -425,7 +431,7 @@ async def _callback_sim(query, context, data_str: str) -> None:
         pending, teks = build_pending_simulasi(state, hasil)
         context.user_data[PENDING_KEY] = pending
         await _edit(query, _teks_sim_dengan_konfirmasi(
-            hasil, state, pending, teks), sim_apply_keyboard())
+            hasil, state, pending, teks), sim_apply_keyboard(pending.get("token")))
         return
     if data_str == "sim:harga":
         await _jalankan_harga_terbaik(query, context, edit=True)
@@ -528,8 +534,18 @@ async def _jalankan_harga_terbaik(target, context, edit: bool) -> None:
         return
     harga_baru = {e["id"]: e["harga_terbaik"] for e in hasil
                   if e["harga_terbaik"] != e["harga_sekarang"]}
-    baris = ["Harga terbaik (laba/hari dari simulasi 1 hari, 2 seed):"]
-    for e in hasil:
+    if not harga_baru:
+        teks = ("Harga semua barang sudah di titik terbaik menurut "
+                "simulasi — tidak ada yang perlu diubah.")
+        if edit:
+            await _edit(target, teks, kb.back_to_menu())
+        else:
+            await target.reply_text(teks)
+        return
+    berubah = [e for e in hasil if e["id"] in harga_baru]
+    baris = [f"Harga terbaik — {len(berubah)} barang berubah "
+             "(laba/hari dari simulasi 1 hari, 2 seed):"]
+    for e in berubah[:20]:
         naik = e["laba_terbaik"] - e["laba_sekarang"]
         tanda = "↑" if naik > 0 else ("=" if naik == 0 else "↓")
         baris.append(
@@ -538,15 +554,18 @@ async def _jalankan_harga_terbaik(target, context, edit: bool) -> None:
             f"{format_rupiah(e['harga_terbaik'])} "
             f"({format_rupiah(e['laba_sekarang'])} → "
             f"{format_rupiah(e['laba_terbaik'])}/hari) {tanda}")
+    if len(berubah) > 20:
+        baris.append(f"... dan {len(berubah) - 20} barang lain "
+                     "(semua tetap diterapkan).")
     baris.append("")
     baris.append(DISCLAIMER)
     pending, teks_konfirmasi = build_pending_harga(state, harga_baru, hasil)
     context.user_data[PENDING_KEY] = pending
     teks = "\n".join(baris) + "\n\n" + teks_konfirmasi
     if edit:
-        await _edit(target, teks, harga_apply_keyboard())
+        await _edit(target, teks, harga_apply_keyboard(pending.get("token")))
     else:
-        await target.reply_text(teks, reply_markup=harga_apply_keyboard())
+        await target.reply_text(teks, reply_markup=harga_apply_keyboard(pending.get("token")))
 
 
 async def _jalankan_harga_pasar(target, context, edit: bool) -> None:
@@ -631,9 +650,9 @@ async def _jalankan_harga_pasar(target, context, edit: bool) -> None:
     context.user_data[PENDING_KEY] = pending
     teks = "\n".join(baris) + "\n\n" + teks_konfirmasi
     if edit:
-        await _edit(target, teks, harga_apply_keyboard())
+        await _edit(target, teks, harga_apply_keyboard(pending.get("token")))
     else:
-        await target.reply_text(teks, reply_markup=harga_apply_keyboard())
+        await target.reply_text(teks, reply_markup=harga_apply_keyboard(pending.get("token")))
 
 
 async def _tampilkan_jadwal_callback(query, context) -> None:
@@ -667,6 +686,9 @@ async def _callback_jadwal(query, context, data_str: str) -> None:
             jam = int(bagian[2])
         except ValueError:
             await _edit(query, "Jam tidak dikenal.", jadwal_keyboard(store.get_jadwal(chat_id)))
+            return
+        if not 0 <= jam <= 23:
+            await _edit(query, "Jam harus 0-23.", jadwal_keyboard(store.get_jadwal(chat_id)))
             return
         store.set_jadwal(chat_id, jam, aktif=True)
         if scheduler is not None:
@@ -732,7 +754,13 @@ async def on_text_whatif(update, context) -> bool:
         if item_id not in data.katalog:
             kesalahan.append(f"barang tidak dikenal: {item_id}")
             continue
+        if data.katalog[item_id].get("jenis") != "fisik":
+            kesalahan.append(f"{item_id} bukan barang fisik (layanan tidak "
+                             "punya harga jual)")
+            continue
         harga_baru[item_id] = harga
+    if len(harga_baru) > 20:
+        kesalahan.append("maksimal 20 barang per what-if")
     if kesalahan:
         await message.reply_text(
             "Input tidak bisa dipakai:\n" + "\n".join(f"- {k}" for k in kesalahan)
@@ -750,6 +778,14 @@ async def on_text_whatif(update, context) -> bool:
     state, err = await _ambil_state(context, message.chat_id)
     if err:
         await message.reply_text(err)
+        return True
+    terbuka = set(state["slot"].get("barang_terbuka", []) or [])
+    terkunci = [i for i in harga_baru if i not in terbuka]
+    if terkunci:
+        await message.reply_text(
+            "Barang belum terbuka di warungmu: " + ", ".join(terkunci)
+            + ". What-if hanya untuk barang fisik yang sudah terbuka.",
+            reply_markup=kb.back_to_menu())
         return True
     try:
         hasil = plan_mod.whatif(state["slot"], data, harga_baru)
@@ -785,7 +821,7 @@ async def on_text_whatif(update, context) -> bool:
          for i, h in hasil["harga_dipakai"].items()])
     context.user_data[PENDING_KEY] = pending
     await message.reply_text("\n".join(baris) + "\n\n" + teks_konfirmasi,
-                             reply_markup=harga_apply_keyboard())
+                             reply_markup=harga_apply_keyboard(pending.get("token")))
     return True
 
 

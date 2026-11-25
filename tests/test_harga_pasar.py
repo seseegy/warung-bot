@@ -187,7 +187,7 @@ async def test_cmd_harga_pasar_pratinjau_dan_pending(
     markup = message.reply_text.call_args[1]["reply_markup"]
     data_callback = [b.callback_data for r in markup.inline_keyboard
                      for b in r]
-    assert "konfirm:tanya:harga" in data_callback
+    assert any(d.startswith("konfirm:tanya:harga:") for d in data_callback)
     pending = ctx.user_data.get(PENDING_KEY)
     assert pending is not None
     assert pending["kind"] == "harga"

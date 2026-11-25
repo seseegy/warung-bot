@@ -29,6 +29,12 @@ lalu game di HP menampilkan hasilnya. Rancangan lengkap:
   (mengganti total), selalu lewat layar konfirmasi (lama → baru)
 - `/tugas_selesai` — isi progres sampai target + konfirmasi (termasuk
   peringatan jujur bila syarat lain belum terpenuhi — lihat di bawah)
+- `/unlimited` — set nilai save ke angka besar / buka semua: stok semua
+  barang fisik, uang + QRIS, total pembeli (nilai 99.999.999 atau
+  custom), buka semua 37 barang, semua 12 upgrade, cerita tamat,
+  level maksimum. Lewat konfirmasi lama → baru; mode baca saja
+  memblokirnya. Total pembeli dikirim game ke papan peringkat publik
+  saat game dibuka.
 - `/sync` (ambil cloud), `/upload_paksa` (timpa setelah bentrok),
   `/unlink` (hapus semua data pengguna dari bot)
 - Menu = **inline keyboard, teks polos tanpa emoji**. Tanpa perintah
@@ -393,8 +399,10 @@ Target Level + 1 tes regresi routing tombol target (24 Nov 2026)
 (25 Nov 2026) + 21 tes perbaikan sim: cerita tamat / load /
 bayar misi / bangkrut (25 Nov 2026) + 2 tes cadangan bayar_misi
 (25 Nov 2026) + 8 tes bayar misi siklus & cadangan sewa (25 Nov 2026)
-+ 11 tes resolusi slot aktif (25 Nov 2026)
-= **533 tes**: Fase 1 (70) + Fase 2 (73) +
++ 11 tes resolusi slot aktif (25 Nov 2026) + 4 tes routing Mode Kerja
+& absen (25 Nov 2026) + 19 tes /unlimited (25 Nov 2026)
++ 12 tes perbaikan verifikasi seluruh bot (25 Nov 2026)
+= **572 tes**: Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),

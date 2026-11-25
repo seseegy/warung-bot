@@ -14,24 +14,45 @@ Aturan main bersama (RANCANGAN §8) yang ditegakkan di sini:
 
 from __future__ import annotations
 
+import secrets
 import time
 
 from ..core import save as save_mod
+from ..core import unlimited as unlimited_mod
 from ..core.cloud import CloudError, ConflictError, NoCloudData, SessionExpired
 from .status import fetch_latest_state, format_rupiah, format_rupiah_compact, progress_bar
 
 PENDING_KEY = "pending"
 
+# Pending konfirmasi terikat ke tombolnya (token) dan kedaluwarsa:
+# tombol lama dari pesan lain tidak bisa mengeksekusi pending terbaru.
+TTL_KONFIRM_DETIK = 900
 
-def build_pending_uang(state: dict, jumlah_baru: int) -> tuple[dict, str]:
-    """Pending ubah uang + teks konfirmasi (lama -> baru)."""
+
+def stempel_pending(pending: dict) -> dict:
+    """Pasang token + waktu buat pada pending (untuk binding tombol)."""
+    pending["token"] = secrets.token_hex(4)
+    pending["dibuat"] = time.time()
+    return pending
+
+
+def build_pending_uang(state: dict, jumlah_baru: int,
+                       delta: int | None = None) -> tuple[dict, str]:
+    """Pending ubah uang + teks konfirmasi (lama -> baru).
+
+    ``delta`` (tombol tambah cepat): pending menyimpan delta + versi
+    dasar, dan eksekusi menolak bila cloud berubah — maksud "tambah
+    sekian" tidak boleh tertimpa diam-diam oleh perubahan dari HP.
+    Tanpa delta (ketik sendiri/API): nilai absolut seperti sebelumnya.
+    """
     lama = state["ringkasan"]["uang"]
     pending = {
         "kind": "uang",
         "jumlah_baru": int(jumlah_baru),
+        "delta": None if delta is None else int(delta),
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
-        "versi_dasar": None,
+        "versi_dasar": int(state["versi"]) if delta is not None else None,
         "nomor_slot": int(state["nomor_slot"]),
     }
     teks = (
@@ -41,7 +62,7 @@ def build_pending_uang(state: dict, jumlah_baru: int) -> tuple[dict, str]:
         "Pastikan game sedang tertutup.\n"
         "Tombol cepat menambah ke uang sekarang; ketik sendiri mengganti total."
     )
-    return pending, teks
+    return stempel_pending(pending), teks
 
 
 def build_pending_tugas(state: dict, tugas_data: dict) -> tuple[dict, str]:
@@ -89,7 +110,7 @@ def build_pending_tugas(state: dict, tugas_data: dict) -> tuple[dict, str]:
         "versi_dasar": None,
         "nomor_slot": int(state["nomor_slot"]),
     }
-    return pending, "\n".join(baris)
+    return stempel_pending(pending), "\n".join(baris)
 
 
 def build_pending_simulasi(state: dict, hasil: dict) -> tuple[dict, str]:
@@ -137,7 +158,7 @@ def build_pending_simulasi(state: dict, hasil: dict) -> tuple[dict, str]:
         "Ini PROYEKSI, bukan hasil main sungguhan — RNG, event acak, dan "
         "pilihan cerita tidak disimulasikan.")
     baris.append("Pastikan game sedang tertutup.")
-    return pending, "\n".join(baris)
+    return stempel_pending(pending), "\n".join(baris)
 
 
 def build_pending_harga(state: dict, harga_baru: dict,
@@ -152,16 +173,18 @@ def build_pending_harga(state: dict, harga_baru: dict,
         "harga_baru": {k: int(v) for k, v in harga_baru.items()},
     }
     baris = [f"Terapkan harga terbaik ke Slot {int(state['nomor_slot'])}?"]
-    for entri in hasil:
-        if entri["id"] in harga_baru:
-            baris.append(
-                f"{entri['nama']}: {format_rupiah(entri['harga_sekarang'])} → "
-                f"{format_rupiah(entri['harga_terbaik'])} "
-                f"(laba/hari {format_rupiah(entri['laba_sekarang'])} → "
-                f"{format_rupiah(entri['laba_terbaik'])})")
+    berubah = [e for e in hasil if e["id"] in harga_baru]
+    for entri in berubah[:20]:
+        baris.append(
+            f"{entri['nama']}: {format_rupiah(entri['harga_sekarang'])} → "
+            f"{format_rupiah(entri['harga_terbaik'])} "
+            f"(laba/hari {format_rupiah(entri['laba_sekarang'])} → "
+            f"{format_rupiah(entri['laba_terbaik'])})")
+    if len(berubah) > 20:
+        baris.append(f"... dan {len(berubah) - 20} barang lain.")
     baris.append("Harga dihitung dari simulasi — proyeksi, bukan jaminan.")
     baris.append("Pastikan game sedang tertutup.")
-    return pending, "\n".join(baris)
+    return stempel_pending(pending), "\n".join(baris)
 
 
 def build_pending_harga_pasar(state: dict, harga_baru: dict,
@@ -193,7 +216,7 @@ def build_pending_harga_pasar(state: dict, harga_baru: dict,
         "Harga mengikuti harga pasar minggu ini (dari agen Pak Misran). "
         "Harga pasar bukan jaminan laba.")
     baris.append("Pastikan game sedang tertutup.")
-    return pending, "\n".join(baris)
+    return stempel_pending(pending), "\n".join(baris)
 
 
 def build_pending_cepat(state: dict, slot_akhir: dict,
@@ -218,7 +241,42 @@ def build_pending_cepat(state: dict, slot_akhir: dict,
         ringkasan_teks,
         "Pastikan game sedang tertutup.",
     ]
-    return pending, "\n".join(baris)
+    return stempel_pending(pending), "\n".join(baris)
+
+
+def build_pending_unlimited(state: dict, data, aksi: str,
+                            nilai: int | None = None) -> tuple[dict, str]:
+    """Pending terapkan aksi /unlimited + teks konfirmasi (lama -> baru).
+
+    Edit absolut ke state segar saat eksekusi (seperti uang): tidak ada
+    cek versi, tapi ``nomor_slot`` dibawa supaya edit mendarat di slot
+    yang dilihat pengguna.
+    """
+    pending = {
+        "kind": "unlimited",
+        "aksi": aksi,
+        "nilai": nilai,
+        "id_papan": state["ringkasan"]["id_papan"],
+        "p_data": None,
+        "versi_dasar": None,
+        "nomor_slot": int(state["nomor_slot"]),
+        "audit": {
+            "aksi": f"unlimited_{aksi}",
+            "detail": unlimited_mod.pratinjau(
+                state["slot"], data, aksi, nilai)[:200],
+        },
+    }
+    teks = (
+        f"Terapkan Unlimited ke Slot {int(state['nomor_slot'])}?\n"
+        f"{unlimited_mod.pratinjau(state['slot'], data, aksi, nilai)}\n"
+        "Akan diunggah ke simpanan online "
+        f"(perkiraan v{state['versi'] + 1}).\n"
+        "Pastikan game sedang tertutup."
+    )
+    if aksi == "pembeli":
+        teks += ("\nCatatan: total pembeli dikirim game ke papan "
+                 "peringkat publik saat game dibuka.")
+    return stempel_pending(pending), teks
 
 
 def build_pending_rollback(state: dict, paket_arsip: dict, tanggal: str,
@@ -257,7 +315,7 @@ def build_pending_rollback(state: dict, paket_arsip: dict, tanggal: str,
         "pemulihan, jadi masih bisa dikembalikan lagi.",
         "Pastikan game sedang tertutup.",
     ]
-    return pending, "\n".join(baris)
+    return stempel_pending(pending), "\n".join(baris)
 
 
 def conflict_text(versi_dasar: int) -> str:
@@ -287,6 +345,14 @@ async def execute_upload(context, chat_id: int, pending: dict) -> tuple[str, str
     store = context.bot_data["store"]
     cloud = context.bot_data["cloud"]
     tugas_data = context.bot_data["tugas"]
+    # Mode baca saja adalah invarian backend: tidak ada upload apa
+    # pun (manual maupun siklus otomatis) selama ia aktif.
+    if store.get_baca_saja(chat_id):
+        return (
+            "Mode baca saja aktif — bot tidak mengubah simpanan. "
+            "Matikan mode baca saja dulu bila mau menerapkan perubahan.",
+            "gagal",
+        )
     try:
         # Pending membawa nomor slot asal state-nya (slot yang dilihat
         # pengguna saat konfirmasi dibuat) — refetch slot itu secara
@@ -310,12 +376,25 @@ async def execute_upload(context, chat_id: int, pending: dict) -> tuple[str, str
     paket_baru = None
     p_data_baru = None
     if pending["kind"] == "uang":
+        jumlah_baru = int(pending["jumlah_baru"])
+        if pending.get("delta") is not None:
+            # Tombol tambah: tolak bila cloud berubah sejak layar
+            # konfirmasi, supaya delta tidak menimpa progres HP.
+            if int(state["versi"]) != int(pending.get("versi_dasar", -1)):
+                return (
+                    "Simpanan di cloud berubah sejak tombol tambah "
+                    f"ditekan (dari v{pending.get('versi_dasar')}, "
+                    f"cloud sekarang v{state['versi']}). "
+                    "Buka lagi menu uang supaya jumlahnya dihitung ulang.",
+                    "gagal",
+                )
+            jumlah_baru = int(state["ringkasan"]["uang"]) + int(pending["delta"])
         try:
-            save_mod.set_uang(slot, int(pending["jumlah_baru"]))
+            save_mod.set_uang(slot, jumlah_baru)
         except ValueError as exc:
             return (f"Jumlah uang tidak valid: {exc}", "gagal")
         hasil_teks = (
-            f"Uang jadi {format_rupiah(pending['jumlah_baru'])} "
+            f"Uang jadi {format_rupiah(jumlah_baru)} "
             f"(simpanan online v{{versi}}). Buka game → pilih simpanan cloud."
         )
     elif pending["kind"] == "tugas":
@@ -392,11 +471,33 @@ async def execute_upload(context, chat_id: int, pending: dict) -> tuple[str, str
         slot = pending["slot_akhir"]
         hasil_teks = str(pending.get("ringkasan", "Aksi cepat diterapkan"))
         hasil_teks += " (simpanan online v{versi}). Buka game → pilih simpanan cloud."
+    elif pending["kind"] == "unlimited":
+        try:
+            unlimited_mod.terapkan(
+                slot, context.bot_data["data"],
+                str(pending.get("aksi", "")), pending.get("nilai"))
+        except ValueError as exc:
+            return (f"Unlimited tidak valid: {exc}", "gagal")
+        label = unlimited_mod.LABEL_AKSI.get(
+            str(pending.get("aksi", "")), "Unlimited")
+        hasil_teks = (
+            f"Unlimited diterapkan: {label} "
+            "(simpanan online v{versi}). Buka game → pilih simpanan cloud."
+        )
     elif pending["kind"] == "rollback":
         # Rollback Fase 5: arsip diunggah APA ADANYA sebagai versi baru.
-        # Tidak ada cek versi terhadap arsip (arsip memang lebih lama) —
-        # pengamannya adalah konfirmasi ganda di handler. Paket cloud
-        # saat ini dicadangkan di bawah sebelum ditimpa.
+        # Arsip memang lebih lama, tetapi progres yang masuk SETELAH
+        # layar konfirmasi dibuat tidak boleh tertimpa diam-diam:
+        # tolak bila versi cloud sudah melewati versi dasar pending.
+        if int(state["versi"]) != int(pending.get("versi_dasar", -1)):
+            return (
+                "Simpanan di cloud berubah sejak rollback disiapkan "
+                f"(dari v{pending.get('versi_dasar')}, "
+                f"cloud sekarang v{state['versi']}). "
+                "Siapkan rollback ulang supaya progres terbaru tidak "
+                "tertimpa tanpa sengaja.",
+                "gagal",
+            )
         p_data_arsip = pending.get("p_data")
         if not p_data_arsip:
             return ("Tidak ada arsip yang bisa dipulihkan.", "gagal")
@@ -445,10 +546,13 @@ async def execute_upload(context, chat_id: int, pending: dict) -> tuple[str, str
     session["versi"] = int(hasil["versi"])
     session["sidik"] = save_mod.compute_sidik(paket_baru)
     session["disimpan"] = int(time.time())
-    if pending["kind"] == "rollback":
-        # Kemajuan = slot terbaik paket arsip (bukan slot lama).
-        _, slot = save_mod.best_slot(paket_baru)
-    ringkasan_baru = save_mod.slot_summary(slot)
+    # Kemajuan sesi SELALU slot terbaik paket baru (seperti akun.json
+    # game dan fetch_latest_state), bukan slot yang baru diedit.
+    try:
+        _, slot_kemajuan = save_mod.best_slot(paket_baru)
+    except (save_mod.SlotError, save_mod.PackageError):
+        slot_kemajuan = slot
+    ringkasan_baru = save_mod.slot_summary(slot_kemajuan)
     session["kemajuan"] = {
         "level": ringkasan_baru["level"],
         "hari": ringkasan_baru["hari"],
@@ -469,6 +573,12 @@ async def execute_force_upload(context, chat_id: int, pending: dict) -> tuple[st
     """
     store = context.bot_data["store"]
     cloud = context.bot_data["cloud"]
+    if store.get_baca_saja(chat_id):
+        return (
+            "Mode baca saja aktif — bot tidak mengubah simpanan. "
+            "Matikan mode baca saja dulu bila mau menerapkan perubahan.",
+            "gagal",
+        )
     p_data = pending.get("p_data")
     versi_dasar = pending.get("versi_dasar")
     id_papan = pending.get("id_papan") or ""

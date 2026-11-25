@@ -257,7 +257,14 @@ def harga_terbaik(slot: dict, data: GameData, seed: int | None = 12345,
         terbaik = None
         laba_terbaik = None
         laba_sekarang = None
-        for harga in kandidat:
+        # Harga sekarang SELALU dievaluasi sebagai baseline, walaupun
+        # di bawah lantai (save lama bisa menyimpan harga khusus di
+        # bawah lantai) — baseline tidak boleh dilaporkan nol. Harga
+        # di bawah lantai hanya tidak boleh DIPILIH sebagai terbaik.
+        evaluasi = list(kandidat)
+        if harga_sekarang not in evaluasi:
+            evaluasi.append(harga_sekarang)
+        for harga in evaluasi:
             slot_uji = sim_mod._normalisasi_slot(slot, data)
             khusus = dict(slot_uji.get("harga_jual_khusus", {}) or {})
             khusus[item_id] = harga
@@ -271,7 +278,7 @@ def harga_terbaik(slot: dict, data: GameData, seed: int | None = 12345,
             rata = total_laba / ulang
             if harga == harga_sekarang:
                 laba_sekarang = rata
-            if laba_terbaik is None or rata > laba_terbaik:
+            if harga in kandidat and (laba_terbaik is None or rata > laba_terbaik):
                 laba_terbaik = rata
                 terbaik = harga
         hasil.append({

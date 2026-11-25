@@ -47,7 +47,7 @@ async def cmd_cuan(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _audit(pending, "cuan", ringkasan.replace("\n", " "))
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
-        teks, reply_markup=kb.confirm_keyboard("cepat"))
+        teks, reply_markup=kb.confirm_keyboard("cepat", pending.get("token")))
 
 
 async def cmd_cuan_mati(update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -73,7 +73,7 @@ async def cmd_cuan_mati(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _audit(pending, "cuan_mati", ringkasan)
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
-        teks, reply_markup=kb.confirm_keyboard("cepat"))
+        teks, reply_markup=kb.confirm_keyboard("cepat", pending.get("token")))
 
 
 def _teks_menu_cuan(slot: dict) -> str:

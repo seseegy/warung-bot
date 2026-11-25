@@ -132,10 +132,10 @@ def test_siklus_awal_minus_diperbaiki_sebelum_sim(
 
 def test_siklus_akhir_minus_diperbaiki_sebelum_upload(
         rich_slot, game_data, tugas_data):
-    # Uang tepat Rp50.000, stok 0 (tidak ada penjualan), Lv2 (kipas
-    # jadi blocker naik level, jadi tidak ada hadiah level): sim hanya
-    # memotong biaya harian Rp10.000 -> uang 40.000 -> penjaga akhir
-    # menambah Rp10.000. Angka dipatok dari BIAYA_HARIAN casual sim.
+    # Uang tepat Rp50.000, stok 0, Lv2: restock darurat memakai uang
+    # untuk membeli stok (jalan buntu Rp50.000), sim bisa berakhir di
+    # bawah Rp50.000 — penjaga akhir wajib menaikkannya kembali ke
+    # Rp50.000 sebelum upload.
     slot = copy.deepcopy(rich_slot)
     slot["tingkat"] = 1
     slot["uang"] = 50000
@@ -144,11 +144,11 @@ def test_siklus_akhir_minus_diperbaiki_sebelum_upload(
                                      tier=2, batas_harian=1_000_000,
                                      seed=12345)
     assert hasil["sim"] is not None
-    assert hasil["sim"]["uang_akhir"] == 40000
+    assert hasil["sim"]["uang_akhir"] < 50000
     jaga = [a for a in hasil["aksi"] if a["aksi"] == "jaga_saldo"]
     assert len(jaga) == 1
-    assert jaga[0]["jumlah"] == 10000
-    assert jaga[0]["dari"] == 40000
+    assert jaga[0]["jumlah"] == 50000 - hasil["sim"]["uang_akhir"]
+    assert jaga[0]["dari"] == hasil["sim"]["uang_akhir"]
     assert jaga[0]["ke"] == 50000
     assert hasil["slot"]["uang"] == 50000
     assert hasil["uang_akhir"] == 50000

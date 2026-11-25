@@ -186,9 +186,7 @@ def format_status_card(
     ]
     if target is not None:
         baris.append(f"Tugas Lv {ringkasan['level']} — {target.get('nama', '')}")
-        baris.append("```")
         baris.extend(_baris_tugas(progres, target))
-        baris.append("```")
         # Bila semua progres sudah penuh, jelaskan kenapa belum naik level.
         semua_penuh = all(
             int(progres.get(k, 0)) >= int(target.get(k, 0))
@@ -239,10 +237,8 @@ def format_task_card(slot: dict, tugas_data: dict) -> str:
         f"Tugas Level {tingkat + 1} — {target.get('nama', '')}",
         f"Hadiah: {format_rupiah(int(target.get('hadiah', 0)))}",
         "",
-        "```",
     ]
     baris.extend(_baris_tugas(progres, target))
-    baris.append("```")
     # Syarat lain _cek_tugas() yang tidak terlihat dari progres saja.
     syarat: list[str] = []
     upgrade = target.get("upgrade", [])
@@ -270,6 +266,14 @@ def format_task_card(slot: dict, tugas_data: dict) -> str:
 
 
 # -- pengambilan state -------------------------------------------------
+
+def diizinkan(context, chat_id: int) -> bool:
+    """Allowlist chat (satu definisi untuk semua handler perintah)."""
+    allowed = context.bot_data.get("allowed")
+    if not allowed:  # allowlist kosong -> semua boleh
+        return True
+    return chat_id in allowed
+
 
 async def fetch_latest_state(context, chat_id: int,
                              nomor_slot: int | None = None) -> dict:
@@ -347,6 +351,10 @@ async def fetch_latest_state(context, chat_id: int,
                 store.set_slot_aktif(chat_id, None)
         if slot is None:
             nomor_slot, slot = save_mod.best_slot(paket)
+    # Mode cuan persisten di Store: flag slot hilang saat game
+    # menyimpan, jadi pasang ulang di sini (satu titik resolusi).
+    if store.get_cuan(chat_id):
+        slot["mode_cuan"] = True
     ringkasan = save_mod.slot_summary(slot)
     # Perbarui info versi/sidik/kemajuan di store dari data cloud terbaru.
     session["versi"] = int(cloud_data["versi"])

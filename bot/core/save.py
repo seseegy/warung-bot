@@ -198,18 +198,28 @@ def compute_sidik(paket: dict) -> str:
     return hashlib.sha256("|".join(bagian).encode("utf-8")).hexdigest()
 
 
+def _int_aman(nilai, bawaan: int = 0) -> int:
+    """int() yang tidak meledak untuk field rusak (str non-angka dll)."""
+    try:
+        return int(nilai)
+    except (TypeError, ValueError):
+        return bawaan
+
+
 def slot_summary(slot: dict) -> dict:
     """Ringkasan slot seperti ``info_slot()`` (game_state.gd ~l.3272).
 
-    level = tingkat + 1; qris = saldo_digital.
+    level = tingkat + 1; qris = saldo_digital. Field numerik rusak
+    dibaca sebagai nilai bawaan, bukan meledak — satu slot rusak
+    bentuk tidak boleh menggagalkan pembacaan paket.
     """
     return {
         "nama_warung": str(slot.get("nama_warung", "")),
-        "hari": int(slot.get("hari", 1)),
-        "uang": int(slot.get("uang", 0)),
-        "qris": int(slot.get("saldo_digital", 0)),
-        "level": int(slot.get("tingkat", 0)) + 1,
-        "tingkat": int(slot.get("tingkat", 0)),
+        "hari": _int_aman(slot.get("hari", 1), 1),
+        "uang": _int_aman(slot.get("uang", 0)),
+        "qris": _int_aman(slot.get("saldo_digital", 0)),
+        "level": _int_aman(slot.get("tingkat", 0)) + 1,
+        "tingkat": _int_aman(slot.get("tingkat", 0)),
         "disimpan": str(slot.get("disimpan", "")),
         "id_papan": str(slot.get("id_papan", "")),
     }
@@ -238,7 +248,8 @@ def best_slot(paket: dict) -> tuple[int, dict]:
             data = parse_slot(isi)
         except SlotError:
             continue
-        kunci = (int(data.get("tingkat", 0)), int(data.get("hari", 1)))
+        kunci = (_int_aman(data.get("tingkat", 0)),
+                 _int_aman(data.get("hari", 1), 1))
         if terbaik_kunci is None or kunci > terbaik_kunci:
             terbaik_n, terbaik, terbaik_kunci = n, data, kunci
     if terbaik_n is None or terbaik is None:
