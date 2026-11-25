@@ -78,6 +78,19 @@ def test_status_card_tampilkan_jam_sinkron(tugas_data, sample_slot):
     assert "disinkronkan" not in teks_tanpa
 
 
+def test_status_card_tampilkan_nomor_slot(tugas_data, sample_slot):
+    """Kartu status menyebut slot yang ditampilkan — bot bisa memakai
+    slot pilihan /slot, bukan selalu slot terbaik."""
+    from bot.core.save import slot_summary
+
+    ringkasan = slot_summary(sample_slot)
+    teks = format_status_card(
+        ringkasan, sample_slot, tugas_data, 8, nomor_slot=2)
+    assert "Simpanan online v8 · Slot 2 ·" in teks
+    teks_tanpa = format_status_card(ringkasan, sample_slot, tugas_data, 8)
+    assert "Slot" not in teks_tanpa
+
+
 def test_task_card_tampilkan_blocker_upgrade(tugas_data, sample_slot):
     teks = format_task_card(sample_slot, tugas_data)
     assert "Mulai Dikenal" in teks

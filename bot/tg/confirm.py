@@ -32,9 +32,10 @@ def build_pending_uang(state: dict, jumlah_baru: int) -> tuple[dict, str]:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": None,
+        "nomor_slot": int(state["nomor_slot"]),
     }
     teks = (
-        "Ubah uang?\n"
+        f"Ubah uang di Slot {int(state['nomor_slot'])}?\n"
         f"{format_rupiah(lama)} → {format_rupiah(jumlah_baru)}\n"
         f"Akan diunggah ke simpanan online (perkiraan v{state['versi'] + 1}).\n"
         "Pastikan game sedang tertutup.\n"
@@ -50,7 +51,8 @@ def build_pending_tugas(state: dict, tugas_data: dict) -> tuple[dict, str]:
     target = hasil["target"]
     progres = slot.get("progres", {}) if isinstance(slot.get("progres"), dict) else {}
     baris = [
-        f"Isi progres tugas Lv {int(slot.get('tingkat', 0)) + 1}"
+        f"Isi progres tugas Slot {int(state['nomor_slot'])}"
+        f" Lv {int(slot.get('tingkat', 0)) + 1}"
         f" — {target.get('nama', '')} sampai target?",
     ]
     for kunci, label in (
@@ -85,6 +87,7 @@ def build_pending_tugas(state: dict, tugas_data: dict) -> tuple[dict, str]:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": None,
+        "nomor_slot": int(state["nomor_slot"]),
     }
     return pending, "\n".join(baris)
 
@@ -103,12 +106,14 @@ def build_pending_simulasi(state: dict, hasil: dict) -> tuple[dict, str]:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "slot_akhir": slot_akhir,
         "jumlah_hari": len(hasil["hari"]),
     }
     naik = hasil["tingkat_akhir"] - hasil["tingkat_awal"]
     baris = [
-        f"Terapkan hasil simulasi {len(hasil['hari'])} hari ke simpanan?",
+        f"Terapkan hasil simulasi {len(hasil['hari'])} hari"
+        f" ke Slot {int(state['nomor_slot'])}?",
         f"Uang {format_rupiah(hasil['uang_awal'])} → "
         f"{format_rupiah(hasil['uang_akhir'])}",
         f"QRIS {format_rupiah(hasil['qris_awal'])} → "
@@ -143,9 +148,10 @@ def build_pending_harga(state: dict, harga_baru: dict,
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "harga_baru": {k: int(v) for k, v in harga_baru.items()},
     }
-    baris = ["Terapkan harga terbaik ke simpanan?"]
+    baris = [f"Terapkan harga terbaik ke Slot {int(state['nomor_slot'])}?"]
     for entri in hasil:
         if entri["id"] in harga_baru:
             baris.append(
@@ -174,9 +180,10 @@ def build_pending_harga_pasar(state: dict, harga_baru: dict,
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "harga_baru": {k: int(v) for k, v in harga_baru.items()},
     }
-    baris = ["Terapkan harga pasar ke simpanan?"]
+    baris = [f"Terapkan harga pasar ke Slot {int(state['nomor_slot'])}?"]
     for entri in perubahan:
         if entri["id"] in harga_baru:
             baris.append(
@@ -207,7 +214,7 @@ def build_pending_cepat(state: dict, slot_akhir: dict,
         "ringkasan": ringkasan_teks,
     }
     baris = [
-        "Terapkan aksi ini ke simpanan?",
+        f"Terapkan aksi ini ke Slot {int(state['nomor_slot'])}?",
         ringkasan_teks,
         "Pastikan game sedang tertutup.",
     ]
@@ -281,9 +288,11 @@ async def execute_upload(context, chat_id: int, pending: dict) -> tuple[str, str
     cloud = context.bot_data["cloud"]
     tugas_data = context.bot_data["tugas"]
     try:
-        # Pending aksi cepat membawa nomor slot pilihan pengguna; yang
-        # lain memakai slot terbaik (tanpa kwarg — kompatibel dengan
-        # pemanggil lama).
+        # Pending membawa nomor slot asal state-nya (slot yang dilihat
+        # pengguna saat konfirmasi dibuat) — refetch slot itu secara
+        # ketat supaya edit tidak mendarat di slot lain bila pilihan
+        # /slot berubah di tengah jalan. Rollback (nomor_slot None)
+        # mengganti paket utuh, jadi refetch cukup resolusi biasa.
         if pending.get("nomor_slot") is not None:
             state = await fetch_latest_state(
                 context, chat_id, nomor_slot=pending["nomor_slot"])

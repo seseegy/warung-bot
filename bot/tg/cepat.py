@@ -62,13 +62,14 @@ async def _edit(query, teks: str, markup=None) -> None:
 
 
 async def _ambil_state_aktif(context, chat_id: int):
-    """Ambil state terbaru pada slot aktif pilihan pengguna (/slot).
+    """Ambil state terbaru pada slot yang dipakai bot.
 
-    Mengembalikan (state, pesan_error)."""
-    store = context.bot_data["store"]
-    nomor = store.get_slot_aktif(chat_id)
+    Resolusi slot (pilihan /slot, lalu slot terbaik) terjadi di dalam
+    ``fetch_latest_state`` — satu titik untuk semua fitur, supaya
+    status/simulasi/siklus otomatis tidak menyimpang dari pilihan
+    pengguna. Mengembalikan (state, pesan_error)."""
     try:
-        state = await fetch_latest_state(context, chat_id, nomor_slot=nomor)
+        state = await fetch_latest_state(context, chat_id)
         return state, None
     except NotLinked:
         return None, "Belum ada akun tertaut. Tautkan dulu dengan /link."
@@ -400,7 +401,7 @@ async def cmd_slot(update, context) -> None:
         for entri in daftar:
             if entri["nomor"] == nomor_terbaik:
                 entri["terbaik"] = True
-    except save_mod.SlotError:
+    except (save_mod.SlotError, save_mod.PackageError):
         pass
     await message.reply_text(
         _format_slot_list(daftar, aktif),
@@ -707,7 +708,8 @@ async def on_callback_cepat(update, context, query, data_str: str) -> None:
             teks = (f"Slot aktif: slot {nomor} "
                     f"\"{entri['nama_warung'] or '(belum bernama)'}\" "
                     f"Level {entri['level']} · Hari {entri['hari']}. "
-                    "Aksi cepat & simulasi bot memakai slot ini.")
+                    "Bot memakai slot ini untuk status, simulasi, "
+                    "aksi cepat, dan siklus otomatis.")
         store.log_audit(chat_id, "pilih_slot", teks)
         await _edit(query, teks, kb.back_to_menu())
         return

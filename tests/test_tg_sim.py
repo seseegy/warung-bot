@@ -101,7 +101,7 @@ def test_keyboard_sim_tanpa_emoji():
 async def test_on_text_whatif_valid(rich_slot, game_data, monkeypatch):
     state = {"slot": rich_slot,
              "ringkasan": {"id_papan": "x"},
-             "versi": 1}
+             "versi": 1, "nomor_slot": 1}
 
     async def _ambil(context, chat_id):
         return state, None

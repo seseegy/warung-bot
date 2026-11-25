@@ -571,6 +571,7 @@ def create_app(
             "id_papan": state["ringkasan"]["id_papan"],
             "p_data": None,
             "versi_dasar": int(body.versi_dasar),
+            "nomor_slot": int(state["nomor_slot"]),
             "harga_baru": harga_baru,
         }
         teks, status = await execute_upload(_ctx(), chat_id, pending)

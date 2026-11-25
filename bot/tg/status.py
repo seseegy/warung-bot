@@ -145,6 +145,7 @@ def format_status_card(
     tier: int | None = None,
     jam_otomatis: int | None = None,
     data=None,
+    nomor_slot: int | None = None,
 ) -> str:
     """Kartu status (RANCANGAN §15.4).
 
@@ -157,6 +158,10 @@ def format_status_card(
     ditampilkan (dipakai jalur yang belum punya akses store).
 
     ``data`` (opsional) = GameData untuk nama + harga upgrade syarat.
+
+    ``nomor_slot`` (opsional) = nomor slot yang sedang ditampilkan,
+    ditulis di baris simpanan supaya jelas kartu ini slot yang mana
+    (bot bisa memakai slot pilihan /slot, bukan selalu slot terbaik).
     """
     tingkat = int(slot.get("tingkat", 0))
     try:
@@ -199,10 +204,10 @@ def format_status_card(
                 baris.append("Semua tugas beres — tinggal: " + " · ".join(blok))
     else:
         baris.append("Tugas: sudah level terakhir, tidak ada tugas lagi.")
-    baris_disimpan = (
-        f"Simpanan online v{versi_cloud}"
-        f" · disimpan {format_disimpan(ringkasan['disimpan'])}"
-    )
+    baris_disimpan = f"Simpanan online v{versi_cloud}"
+    if nomor_slot is not None:
+        baris_disimpan += f" · Slot {int(nomor_slot)}"
+    baris_disimpan += f" · disimpan {format_disimpan(ringkasan['disimpan'])}"
     if disinkronkan:
         baris_disimpan += f" · disinkronkan {format_disimpan(disinkronkan)} WIB"
     if otomatis is not None:
@@ -270,11 +275,20 @@ async def fetch_latest_state(context, chat_id: int,
                              nomor_slot: int | None = None) -> dict:
     """Ambil save terbaru dari cloud + decode + pilih slot.
 
-    Default (``nomor_slot=None``): slot terbaik seperti ``kemajuan_hp``
-    (level lalu hari). Bila ``nomor_slot`` 1-6 diberikan (pilihan /slot
-    Fase 5), slot itu yang dipakai — dan ``kemajuan`` sesi TIDAK
-    diperbarui (kemajuan selalu menggambarkan slot terbaik, seperti
-    ``akun.json`` game).
+    Pemilihan slot (SATU titik resolusi untuk semua pemanggil):
+
+    - ``nomor_slot`` eksplisit (1-6, mis. dari pending konfirmasi):
+      slot itu yang dipakai, KETAT — kosong/rusak -> ``SlotError``.
+      Pending harus mendarat di slot asal state-nya, bukan slot lain.
+    - ``nomor_slot=None`` (default semua fitur): hormati pilihan
+      pengguna di ``/slot`` (``store.get_slot_aktif``). Bila pilihan
+      itu kosong/rusak di cloud, pilihan dibersihkan dan bot jatuh
+      ke slot terbaik — bot tidak boleh terkunci oleh pilihan lama.
+      Tanpa pilihan: slot terbaik seperti ``kemajuan_hp`` (level
+      lalu hari).
+
+    ``kemajuan`` sesi SELALU menggambarkan slot terbaik, seperti
+    ``akun.json`` game, apa pun slot yang sedang dipakai bot.
 
     Mengembalikan dict: versi, p_data, paket, nomor_slot, slot, ringkasan,
     session (sesi terbaru setelah kemungkinan refresh token).
@@ -303,17 +317,36 @@ async def fetch_latest_state(context, chat_id: int,
     # Token mungkin di-refresh di dalam fetch_cloud -> simpan sesi baru.
     store.update_session(chat_id, session)
     paket = save_mod.decode_package(cloud_data["data"])
-    if nomor_slot is None:
-        nomor_slot, slot = save_mod.best_slot(paket)
-    else:
+    slot_map = paket.get("slot", {})
+    if not isinstance(slot_map, dict):
+        slot_map = {}
+    if nomor_slot is not None:
+        # Eksplisit: ketat, slot harus ada dan bisa dibaca.
         if not 1 <= int(nomor_slot) <= 6:
             raise save_mod.SlotError("nomor slot harus 1-6")
-        slot_map = paket.get("slot", {})
-        teks = slot_map.get(str(int(nomor_slot))) if isinstance(
-            slot_map, dict) else None
+        teks = slot_map.get(str(int(nomor_slot)))
         if not teks:
             raise save_mod.SlotError(f"slot {nomor_slot} kosong")
         slot = save_mod.parse_slot(teks)
+        nomor_slot = int(nomor_slot)
+    else:
+        # Implisit: pilihan /slot dulu, lalu slot terbaik.
+        slot = None
+        pilihan = store.get_slot_aktif(chat_id)
+        if pilihan is not None:
+            teks = slot_map.get(str(pilihan))
+            if teks:
+                try:
+                    slot = save_mod.parse_slot(teks)
+                    nomor_slot = pilihan
+                except save_mod.SlotError:
+                    slot = None
+            if slot is None:
+                # Pilihan lama sudah kosong/rusak di cloud: bersihkan
+                # supaya bot kembali ke slot terbaik, bukan gagal terus.
+                store.set_slot_aktif(chat_id, None)
+        if slot is None:
+            nomor_slot, slot = save_mod.best_slot(paket)
     ringkasan = save_mod.slot_summary(slot)
     # Perbarui info versi/sidik/kemajuan di store dari data cloud terbaru.
     session["versi"] = int(cloud_data["versi"])
@@ -322,31 +355,21 @@ async def fetch_latest_state(context, chat_id: int,
     except save_mod.PackageError:
         session["sidik"] = session.get("sidik", "")
     session["p_id_papan"] = ringkasan["id_papan"] or session.get("p_id_papan", "")
-    if nomor_slot is None:
-        # Slot terbaik: kemajuan = slot itu.
+    # Kemajuan selalu slot terbaik (seperti akun.json game), apa pun
+    # slot yang sedang dipakai bot.
+    try:
+        _, slot_terbaik = save_mod.best_slot(paket)
+        ringkasan_terbaik = save_mod.slot_summary(slot_terbaik)
         session["kemajuan"] = {
-            "level": ringkasan["level"],
-            "hari": ringkasan["hari"],
-            "nama": ringkasan["nama_warung"],
-            "uang": ringkasan["uang"],
-            "qris": ringkasan["qris"],
-            "disimpan": ringkasan["disimpan"],
+            "level": ringkasan_terbaik["level"],
+            "hari": ringkasan_terbaik["hari"],
+            "nama": ringkasan_terbaik["nama_warung"],
+            "uang": ringkasan_terbaik["uang"],
+            "qris": ringkasan_terbaik["qris"],
+            "disimpan": ringkasan_terbaik["disimpan"],
         }
-    else:
-        # Slot eksplisit: kemajuan tetap dari slot terbaik.
-        try:
-            _, slot_terbaik = save_mod.best_slot(paket)
-            ringkasan_terbaik = save_mod.slot_summary(slot_terbaik)
-            session["kemajuan"] = {
-                "level": ringkasan_terbaik["level"],
-                "hari": ringkasan_terbaik["hari"],
-                "nama": ringkasan_terbaik["nama_warung"],
-                "uang": ringkasan_terbaik["uang"],
-                "qris": ringkasan_terbaik["qris"],
-                "disimpan": ringkasan_terbaik["disimpan"],
-            }
-        except save_mod.SlotError:
-            pass
+    except (save_mod.SlotError, save_mod.PackageError):
+        pass
     store.update_session(chat_id, session)
     return {
         "versi": int(cloud_data["versi"]),

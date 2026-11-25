@@ -203,7 +203,7 @@ async def test_job_mode_kejar_siklus_biasa_diam(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -232,7 +232,7 @@ async def test_job_mode_kejar_berhenti_saat_target_tercapai(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -261,7 +261,7 @@ async def test_job_mode_kejar_uang_minus_diperbaiki_penjaga_saldo(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                            "uang": -30000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
     diunggah = {}
 
     async def _fetch(context, chat_id):
@@ -299,7 +299,7 @@ async def test_job_mode_kejar_upload_gagal_tidak_hitung_siklus(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -326,7 +326,7 @@ async def test_job_mode_kejar_bentrok_mematikan(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -355,7 +355,7 @@ async def test_job_mode_kejar_papan_gagal_lewati_siklus(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -439,7 +439,7 @@ async def test_kejar_konfirmasi_uang_minus_ditampilkan_penjaga_saldo(
         return {"slot": slot,
                 "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                               "uang": -50000, "id_papan": "id-x"},
-                "versi": 1, "paket": {}}
+                "versi": 1, "nomor_slot": 1, "paket": {}}
 
     monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
     query = _fake_query("kejar:konfirmasi:100")
@@ -465,7 +465,7 @@ async def test_kejar_konfirmasi_tampilkan_batas(
         return {"slot": slot,
                 "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                               "uang": 500000, "id_papan": "id-x"},
-                "versi": 1, "paket": {}}
+                "versi": 1, "nomor_slot": 1, "paket": {}}
 
     monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
     query = _fake_query("kejar:konfirmasi:100")
@@ -495,7 +495,7 @@ async def test_kejar_mulai_menyalakan(
             return {"slot": slot,
                     "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                                   "uang": 500000, "id_papan": "id-x"},
-                    "versi": 1, "paket": {}}
+                    "versi": 1, "nomor_slot": 1, "paket": {}}
 
         monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
         query = _fake_query("kejar:mulai:100")
@@ -532,7 +532,7 @@ async def test_kejar_mulai_uang_minus_diperbaiki_penjaga_saldo(
             return {"slot": slot,
                     "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                                   "uang": -30000, "id_papan": "id-x"},
-                    "versi": 1, "paket": {}}
+                    "versi": 1, "nomor_slot": 1, "paket": {}}
 
         monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
         query = _fake_query("kejar:mulai:100")
@@ -583,7 +583,7 @@ async def test_target_mulai_mematikan_mode_kejar(
             return {"slot": rich_slot,
                     "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                                   "uang": 500000, "id_papan": "id-x"},
-                    "versi": 1, "paket": {}}
+                    "versi": 1, "nomor_slot": 1, "paket": {}}
 
         monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
         query = _fake_query("target:mulai:6")

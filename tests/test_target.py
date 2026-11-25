@@ -225,7 +225,7 @@ async def test_job_mode_target_siklus_biasa_diam(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -253,7 +253,7 @@ async def test_job_mode_target_berhenti_saat_target_tercapai(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 6, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -283,7 +283,7 @@ async def test_job_mode_target_uang_minus_diperbaiki_penjaga_saldo(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 2, "hari": 1,
                            "uang": -30000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
     diunggah = {}
 
     async def _fetch(context, chat_id):
@@ -316,7 +316,7 @@ async def test_job_mode_target_bentrok_mematikan(
     state = {"slot": copy.deepcopy(rich_slot),
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
         return state
@@ -386,7 +386,7 @@ async def test_target_konfirmasi_tolak_target_lewat(
         return {"slot": rich_slot,
                 "ringkasan": {"nama": "W", "level": 3, "hari": 1,
                               "uang": 500000, "id_papan": "id-x"},
-                "versi": 1, "paket": {}}
+                "versi": 1, "nomor_slot": 1, "paket": {}}
 
     monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
     query = _fake_query("target:konfirmasi:2")
@@ -404,7 +404,7 @@ async def test_target_mulai_menyalakan(
             return {"slot": rich_slot,
                     "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                                   "uang": 500000, "id_papan": "id-x"},
-                    "versi": 1, "paket": {}}
+                    "versi": 1, "nomor_slot": 1, "paket": {}}
 
         monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
         query = _fake_query("target:mulai:6")
@@ -434,7 +434,7 @@ async def test_target_mulai_uang_minus_diperbaiki_penjaga_saldo(
             return {"slot": slot,
                     "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                                   "uang": -30000, "id_papan": "id-x"},
-                    "versi": 1, "paket": {}}
+                    "versi": 1, "nomor_slot": 1, "paket": {}}
 
         monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
         query = _fake_query("target:mulai:6")
@@ -466,7 +466,7 @@ async def test_target_konfirmasi_tampilkan_penjaga_saldo(
         return {"slot": slot,
                 "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                               "uang": -30000, "id_papan": "id-x"},
-                "versi": 1, "paket": {}}
+                "versi": 1, "nomor_slot": 1, "paket": {}}
 
     monkeypatch.setattr("bot.tg.tiers.fetch_latest_state", _fetch)
     query = _fake_query("target:konfirmasi:6")

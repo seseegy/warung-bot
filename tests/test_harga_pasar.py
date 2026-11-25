@@ -201,7 +201,7 @@ def test_build_pending_harga_pasar_teks(rich_slot, game_data):
                        pasaran={"mi_goreng": 1.1, "beras": 0.9})
     _, perubahan = auto_mod.auto_harga_pasar(slot, game_data)
     berubah = [p for p in perubahan if p.get("ok")]
-    state = {"versi": 8,
+    state = {"versi": 8, "nomor_slot": 1,
              "ringkasan": {"id_papan": "3a5dd8081fa92f174078ce3ca639fa07"}}
     harga_baru = {p["id"]: p["baru"] for p in berubah}
     pending, teks = build_pending_harga_pasar(state, harga_baru, berubah)

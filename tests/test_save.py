@@ -175,6 +175,18 @@ def test_best_slot_tolak_paket_kosong():
         best_slot({"slot": {}})
 
 
+def test_best_slot_lewati_slot_rusak(sample_package):
+    """Satu slot rusak tidak boleh membuat seluruh paket gagal dibaca:
+    slot rusak dilewati, slot sehat tetap dipilih."""
+    sample_package["slot"]["2"] = "{json rusak"
+    nomor, data = best_slot(sample_package)
+    assert nomor == 1
+    assert data["nama_warung"] == "Warung Barokah"
+    # Semua slot rusak -> tetap PackageError.
+    with pytest.raises(PackageError):
+        best_slot({"slot": {"1": "{rusak", "2": "bukan json"}})
+
+
 # -- ubah uang -------------------------------------------------------------
 
 def test_set_uang_ok(sample_slot):

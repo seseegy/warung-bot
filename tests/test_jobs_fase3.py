@@ -132,6 +132,7 @@ async def test_siklus_berhasil_mengunggah_dan_melapor(
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
              "versi": 1,
+             "nomor_slot": 1,
              "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
@@ -165,6 +166,7 @@ async def test_siklus_bentrok_mematikan_otomatisasi(
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": 500000, "id_papan": "id-x"},
              "versi": 1,
+             "nomor_slot": 1,
              "paket": {"toko": {}, "lemari": []}}
 
     async def _fetch(context, chat_id):
@@ -224,6 +226,7 @@ async def test_execute_upload_siklus_tolak_bila_cloud_berubah(
                   "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                                 "uang": 500000, "id_papan": "id-x"},
                   "versi": 2,
+                  "nomor_slot": 1,
                   "paket": {}}
 
     async def _fetch(context, chat_id):

@@ -268,6 +268,7 @@ def _teks_status(state: dict, context, chat_id: int) -> str:
         state["ringkasan"], state["slot"], context.bot_data["tugas"], state["versi"],
         state.get("disinkronkan"), otomatis, tier, jam,
         context.bot_data.get("data"),
+        nomor_slot=state.get("nomor_slot"),
     )
 
 

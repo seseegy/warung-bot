@@ -220,6 +220,11 @@ def best_slot(paket: dict) -> tuple[int, dict]:
 
     Sama seperti ``kemajuan_hp()`` di akun_online.gd yang memilih slot
     "paling jauh" (level dulu, baru hari). Mengembalikan (nomor_slot, dict).
+
+    Slot yang rusak (tidak bisa di-parse) DILEWATI, sama seperti
+    ``daftar_slot`` menandainya "rusak" — satu slot rusak tidak boleh
+    membuat seluruh paket tidak bisa dibaca. ``PackageError`` hanya
+    bila tidak ada satu pun slot yang bisa dibaca.
     """
     slot = paket.get("slot", {})
     terbaik_n: int | None = None
@@ -229,7 +234,10 @@ def best_slot(paket: dict) -> tuple[int, dict]:
         isi = slot.get(str(n))
         if isi is None:
             continue
-        data = parse_slot(isi)
+        try:
+            data = parse_slot(isi)
+        except SlotError:
+            continue
         kunci = (int(data.get("tingkat", 0)), int(data.get("hari", 1)))
         if terbaik_kunci is None or kunci > terbaik_kunci:
             terbaik_n, terbaik, terbaik_kunci = n, data, kunci

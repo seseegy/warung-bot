@@ -434,6 +434,7 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "slot_akhir": hasil["slot"],
         "ringkasan": "Siklus otomatis harian diterapkan",
     }
@@ -634,6 +635,7 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "slot_akhir": hasil["slot"],
         "ringkasan": "Mode Target Level: 1 hari diterapkan",
     }
@@ -831,6 +833,7 @@ async def jalankan_mode_kejar(app, chat_id: int) -> None:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "slot_akhir": hasil["slot"],
         "ringkasan": "Mode Kejar Papan: 1 hari diterapkan",
     }

@@ -289,8 +289,14 @@ koneksi antar-thread melempar `sqlite3.ProgrammingError`.
     harian, hari +1, energi 100. Angka hari ini dari `penjualan_hari` +
     `catatan_hari` (lihat Grounding Fase 5 soal jendela kemarin).
   - `/slot` — pilih slot 1–6 yang dipakai bot (default: slot terbaik
-    seperti `kemajuan_hp` — level lalu hari). Tersimpan per chat
-    (`users.slot_aktif`); `/unlink` menghapusnya.
+    seperti `kemajuan_hp` — level lalu hari). Pilihan dihormati SEMUA
+    fitur (status, simulasi, aksi cepat, siklus otomatis, Mini App):
+    resolusi slot terjadi di satu titik (`fetch_latest_state`), kartu
+    status menampilkan nomor slot, dan setiap pending konfirmasi
+    membawa nomor slot asal state-nya supaya edit tidak mendarat di
+    slot lain. Pilihan yang slotnya sudah kosong/rusak di cloud
+    dibersihkan otomatis dan bot kembali ke slot terbaik. Tersimpan
+    per chat (`users.slot_aktif`); `/unlink` menghapusnya.
 - **`/rencana`** — rencana 7 hari (simulasi + restock + 3 upgrade
   tercepat balik modal + kapan naik level). Proyeksi, bukan janji.
 - **`/statistik`** — barang terlaris hari ini (`penjualan_hari`),
@@ -387,7 +393,8 @@ Target Level + 1 tes regresi routing tombol target (24 Nov 2026)
 (25 Nov 2026) + 21 tes perbaikan sim: cerita tamat / load /
 bayar misi / bangkrut (25 Nov 2026) + 2 tes cadangan bayar_misi
 (25 Nov 2026) + 8 tes bayar misi siklus & cadangan sewa (25 Nov 2026)
-= **522 tes**: Fase 1 (70) + Fase 2 (73) +
++ 11 tes resolusi slot aktif (25 Nov 2026)
+= **533 tes**: Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),

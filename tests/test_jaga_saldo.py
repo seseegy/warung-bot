@@ -190,7 +190,7 @@ async def test_job_siklus_harian_minus_diaudit_dan_dilaporkan(
     state = {"slot": slot,
              "ringkasan": {"nama": "W", "level": 1, "hari": 1,
                            "uang": -30000, "id_papan": "id-x"},
-             "versi": 1, "paket": {"toko": {}, "lemari": []}}
+             "versi": 1, "nomor_slot": 1, "paket": {"toko": {}, "lemari": []}}
     diunggah = {}
 
     async def _fetch(context, chat_id):
