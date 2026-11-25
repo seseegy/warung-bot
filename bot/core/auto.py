@@ -666,7 +666,9 @@ def jaga_saldo(slot: dict, minimum: int = CADANGAN_UANG_MIN) -> tuple[dict, int]
 
 def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
                     tier: int, batas_harian: int,
-                    seed: int | None = None) -> dict:
+                    seed: int | None = None,
+                    absen_nominal: int = 0,
+                    absen_hari_ke: int = 0) -> dict:
     """Satu siklus otomatis harian (murni). Urutan:
 
     0. Penjaga Saldo — perbaiki minus yang sudah ada di save SEBELUM
@@ -693,8 +695,11 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
     6. Penjaga Saldo — pastikan save yang di-upload tidak pernah minus:
        sim memotong biaya harian walau uang habis (seperti game asli,
        ``tutup_hari()``), jadi tanpa ini uang bisa berakhir minus.
+    7. Absen harian game (fitur /absen): nominal harian + bonus siklus
+       hari ke-3 (2x), ke-7 (3x), ke-30 (10x). Bila absen_nominal > 0.
     Mengembalikan {"slot": slot_akhir, "aksi": [...], "sim": {...}|None,
-    "uang_awal": int, "uang_akhir": int, "batas_terlampaui": bool}.
+    "uang_awal": int, "uang_akhir": int, "batas_terlampaui": bool,
+    "absen": {...}|None}.
     Slot awal TIDAK diubah.
     """
     from .tiers import TIER_PROFESIONAL, TIER_STANDAR
@@ -842,6 +847,17 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
                      "dari": uang_sebelum_jaga,
                      "ke": int(slot.get("uang", 0))})
 
+    # 7. Absen harian game (fitur /absen): nominal + bonus siklus 3/7/30.
+    # Hanya bila nominal > 0 (absen mati bila 0). Hari siklus berulang
+    # 1-30; posisi disimpan di Store oleh pemanggil (jobs), bukan di save.
+    hasil_absen = None
+    if absen_nominal > 0:
+        from . import absen as absen_mod
+        hasil_absen = absen_mod.terapkan_absen(slot, absen_nominal,
+                                               absen_hari_ke)
+        if hasil_absen is not None:
+            aksi.append({"aksi": "absen", **hasil_absen})
+
     return {
         "slot": slot,
         "aksi": aksi,
@@ -849,4 +865,5 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         "uang_awal": uang_awal,
         "uang_akhir": int(slot.get("uang", 0)),
         "batas_terlampaui": batas_terlampaui,
+        "absen": hasil_absen,
     }

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from ..core import cuan as cuan_mod
@@ -73,3 +74,46 @@ async def cmd_cuan_mati(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data[PENDING_KEY] = pending
     await message.reply_text(
         teks, reply_markup=kb.confirm_keyboard("cepat"))
+
+
+def _teks_menu_cuan(slot: dict) -> str:
+    aktif = bool(slot.get("mode_cuan"))
+    return (
+        "Mode Cuan — aturan ekonomi lokal diubah agar untung maksimal:\n"
+        "- beli stok 80% lebih murah\n"
+        "- jual harga maksimal (pelanggan tidak kabur karena mahal)\n"
+        "- pelanggan 90% lebih ramai\n"
+        "- stok tak terbatas (tidak habis)\n"
+        "- batas harian diabaikan\n\n"
+        f"Status: {'AKTIF' if aktif else 'MATI'}"
+    )
+
+
+async def on_callback_cuan(update, context, query, data_str: str) -> None:
+    """Callback 'cuan:*' (dirutekan dari handlers.on_callback)."""
+    from .cepat import _UpdateTiruan
+    from .handlers import _edit
+
+    chat_id = query.message.chat_id if query.message else 0
+    aksi = data_str.split(":", 1)[1] if ":" in data_str else "menu"
+    if aksi == "menu":
+        state, err = await _ambil_state_aktif(context, chat_id)
+        if err:
+            await _edit(query, err, kb.main_menu())
+            return
+        aktif = bool(state["slot"].get("mode_cuan"))
+        baris = [[InlineKeyboardButton(
+            "Matikan Cuan" if aktif else "Aktifkan Cuan",
+            callback_data="cuan:mati" if aktif else "cuan:aktif")]]
+        baris.append([InlineKeyboardButton("Kembali ke Menu",
+                                           callback_data="menu:root")])
+        await _edit(query, _teks_menu_cuan(state["slot"]),
+                    InlineKeyboardMarkup(baris))
+        return
+    if aksi == "aktif":
+        await cmd_cuan(_UpdateTiruan(query.message), context)
+        return
+    if aksi == "mati":
+        await cmd_cuan_mati(_UpdateTiruan(query.message), context)
+        return
+    await _edit(query, "Tombol tidak dikenal.", kb.main_menu())

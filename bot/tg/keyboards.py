@@ -59,6 +59,10 @@ def main_menu(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
             InlineKeyboardButton("Aksi Cepat", callback_data="cepat:menu"),
             InlineKeyboardButton("Pengaturan", callback_data=f"{CB_MENU}:pengaturan"),
         ],
+        [
+            InlineKeyboardButton("Mode Cuan", callback_data="cuan:menu"),
+            InlineKeyboardButton("Absen Harian", callback_data="absen:menu"),
+        ],
     ]
     return InlineKeyboardMarkup(baris)
 

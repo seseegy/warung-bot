@@ -41,6 +41,7 @@ from .tg import sim as sim_tg
 from .tg import tiers as tiers_tg
 from .tg import cepat as cepat_tg
 from .tg import cuan as cuan_tg
+from .tg import absen as absen_tg
 
 log = logging.getLogger("warung-bot")
 
@@ -211,6 +212,7 @@ def build_application() -> Application:
     # Fase 3 — Kerja 24/7 (tiga tier).
     app.add_handler(CommandHandler("tier", tiers_tg.cmd_tier))
     app.add_handler(CommandHandler("otomatis", tiers_tg.cmd_otomatis))
+    app.add_handler(CommandHandler("kerja", tiers_tg.cmd_otomatis))
     app.add_handler(CommandHandler("laporan", tiers_tg.cmd_laporan))
     app.add_handler(CommandHandler("bandingkan", tiers_tg.cmd_bandingkan))
     # Fase 5 — Pemantauan & jaga-jaga.
@@ -225,6 +227,10 @@ def build_application() -> Application:
     # Mode cuan (beli murah, jual mahal, pelanggan ramai).
     app.add_handler(CommandHandler("cuan", cuan_tg.cmd_cuan))
     app.add_handler(CommandHandler("cuan_mati", cuan_tg.cmd_cuan_mati))
+    # Absen harian game (hadiah tiap hari game + bonus 3/7/30).
+    app.add_handler(CommandHandler("absen", absen_tg.cmd_absen))
+    app.add_handler(CommandHandler("absen_set", absen_tg.cmd_absen_set))
+    app.add_handler(CommandHandler("absen_reset", absen_tg.cmd_absen_reset))
     app.add_handler(CallbackQueryHandler(handlers.on_callback))
     app.add_handler(MessageHandler(filters.Document.ALL, handlers.on_document))
     app.add_handler(
@@ -249,6 +255,9 @@ async def _startup(app: Application) -> None:
     jumlah_kejar = jobs_mod.muat_semua_mode_kejar(
         scheduler, app, app.bot_data["store"])
     log.info("mode kejar papan dimuat: %d job aktif", jumlah_kejar)
+    jumlah_kerja = jobs_mod.muat_semua_mode_kerja(
+        scheduler, app, app.bot_data["store"])
+    log.info("mode kerja 24/7 dimuat: %d job aktif", jumlah_kerja)
     # Fase 4: sinkronisasi berkala — perubahan pengaturan dari Mini App
     # (proses API terpisah) berlaku tanpa restart bot.
     jobs_mod.atur_sinkronisasi(scheduler, app)

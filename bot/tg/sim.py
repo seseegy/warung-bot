@@ -56,6 +56,11 @@ def sim_menu_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton("Harga Terbaik", callback_data="sim:harga"),
+                InlineKeyboardButton("Harga Pasar", callback_data="sim:harga_pasar"),
+            ],
+            [
+                InlineKeyboardButton("Bandingkan Strategi",
+                                     callback_data="sim:bandingkan"),
                 InlineKeyboardButton("Stok", callback_data="sim:stok"),
             ],
             [
@@ -458,6 +463,9 @@ async def _callback_sim(query, context, data_str: str) -> None:
     if data_str == "sim:jadwal":
         await _tampilkan_jadwal_callback(query, context)
         return
+    if data_str == "sim:bandingkan":
+        await _jalankan_bandingkan_callback(query, context)
+        return
     await _edit(query, "Tombol tidak dikenal.", sim_menu_keyboard())
 
 
@@ -810,3 +818,28 @@ async def on_text_jadwal(update, context) -> bool:
     await message.reply_text(f"Laporan harian aktif tiap {jam:02d}:00 WIB.",
                              reply_markup=kb.back_to_menu())
     return True
+
+
+async def _jalankan_bandingkan_callback(query, context) -> None:
+    """Tombol 'Bandingkan Strategi' (butuh tier Profesional)."""
+    from .handlers import _edit
+    from .tiers import TIER_BANDINGKAN_FITUR, _bandingkan_strategi
+
+    chat_id = query.message.chat_id
+    store = context.bot_data["store"]
+    if store.get_user(chat_id) is None:
+        await _edit(query, "Belum ada akun tertaut. Tautkan dulu dengan /link.")
+        return
+    try:
+        tiers_mod.require_tier(store.get_tier(chat_id), TIER_BANDINGKAN_FITUR)
+    except tiers_mod.TierError as exc:
+        await _edit(query, str(exc), sim_menu_keyboard())
+        return
+    state, err = await _ambil_state(context, chat_id)
+    if err:
+        await _edit(query, err, sim_menu_keyboard())
+        return
+    await _edit(query, "Membandingkan strategi harga (simulasi 1 hari, "
+                "seed sama)…", kb.back_to_menu())
+    teks = _bandingkan_strategi(state["slot"], context.bot_data["data"])
+    await _edit(query, teks, kb.back_to_menu())

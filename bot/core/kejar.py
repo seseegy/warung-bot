@@ -106,7 +106,9 @@ def alasan_berhenti(slot: dict, target_pembeli: int | None,
 
 def satu_siklus_kejar(slot_awal: dict, data, tugas_data: dict,
                       tier: int, batas_harian: int,
-                      seed: int | None = None) -> dict:
+                      seed: int | None = None,
+                      absen_nominal: int = 0,
+                      absen_hari_ke: int = 0) -> dict:
     """Satu siklus Mode Kejar Papan (murni, tanpa I/O). Urutan:
 
     1. Bayar misi cerita (bila uang cukup) — supaya _cek_tugas di
@@ -131,7 +133,8 @@ def satu_siklus_kejar(slot_awal: dict, data, tugas_data: dict,
         aksi.append(beli)
 
     hasil = jalankan_siklus(slot, data, tugas_data, tier, batas_harian,
-                            seed=seed)
+                            seed=seed, absen_nominal=absen_nominal,
+                            absen_hari_ke=absen_hari_ke)
     slot = hasil["slot"]
     aksi.extend(hasil.get("aksi", []))
     tingkat_akhir = int(slot.get("tingkat", 0))
@@ -147,6 +150,7 @@ def satu_siklus_kejar(slot_awal: dict, data, tugas_data: dict,
         "uang_awal": int(hasil.get("uang_awal", slot_awal.get("uang", 0))),
         "uang_akhir": int(slot.get("uang", 0)),
         "sim": hasil.get("sim"),
+        "absen": hasil.get("absen"),
         "total_pembeli_awal": total_awal,
         "total_pembeli_akhir": int(slot.get("total_pembeli", 0)),
     }

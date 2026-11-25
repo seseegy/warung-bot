@@ -67,6 +67,7 @@ TEKS_BANTUAN = (
     "/whatif — coba harga lain, lihat dampaknya\n"
     "/tier — pilih tier Kerja 24/7 (Pemula/Standar/Profesional)\n"
     "/otomatis — nyalakan/matikan siklus otomatis harian\n"
+    "/kerja — Mode Kerja 24/7: 1 hari game tiap 5 menit, jalan terus\n"
     "/laporan — ringkasan harian/mingguan + aksi otomatis\n"
     "/bandingkan — bandingkan strategi harga (butuh tier Profesional)\n"
     "/jual — jual barang dari stok (ketik: mi goreng 5)\n"
@@ -79,6 +80,9 @@ TEKS_BANTUAN = (
     "/statistik — barang laku & omzet dari riwayat save\n"
     "/cuan — mode cuan: beli stok murah (80%), jual mahal, pelanggan ramai\n"
     "/cuan_mati — nonaktifkan mode cuan, kembali normal\n"
+    "/absen — status absen harian game (hadiah + bonus 3/7/30)\n"
+    "/absen_set <nominal> — atur hadiah absen per hari game (0 = mati)\n"
+    "/absen_reset — reset siklus absen ke hari ke-1\n"
     "/bantuan — daftar ini\n"
     "/batal — batalkan alur yang sedang berjalan\n\n"
     "Catatan: game harus TERTUTUP saat bot mengunggah, supaya hasilnya "
@@ -462,6 +466,10 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if data == "menu:pengaturan":
         await _tampilkan_pengaturan(query, context)
         return
+    if data == "menu:upload_paksa":
+        from .cepat import _UpdateTiruan
+        await cmd_upload_paksa(_UpdateTiruan(query.message), context)
+        return
 
     if data == "status:refresh":
         await _tampilkan_status_callback(query, context)
@@ -481,13 +489,23 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await sim_tg.on_callback_sim(update, context, query, data)
         return
 
-    if data.startswith(("tier:", "otomatis:", "target:", "kejar:", "login:",
-                        "laporan:")):
+    if data.startswith(("tier:", "otomatis:", "target:", "kejar:", "kerja:",
+                        "login:", "laporan:")):
         await tiers_tg.on_callback_tier(update, context, query, data)
         return
 
     if data.startswith("cepat:"):
         await cepat_tg.on_callback_cepat(update, context, query, data)
+        return
+
+    if data.startswith("cuan:"):
+        from . import cuan as cuan_tg
+        await cuan_tg.on_callback_cuan(update, context, query, data)
+        return
+
+    if data.startswith("absen:"):
+        from . import absen as absen_tg
+        await absen_tg.on_callback_absen(update, context, query, data)
         return
 
     if data.startswith("konfirm:"):
@@ -596,6 +614,8 @@ async def _tampilkan_pengaturan(query, context) -> None:
         teks,
         kb.InlineKeyboardMarkup(
             [
+                [kb.InlineKeyboardButton("Upload Paksa",
+                                         callback_data="menu:upload_paksa")],
                 [kb.InlineKeyboardButton("Putuskan Tautan", callback_data="konfirm:tanya:unlink")],
                 [kb.InlineKeyboardButton("Kembali ke Menu", callback_data="menu:root")],
             ]

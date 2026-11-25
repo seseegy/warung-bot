@@ -26,6 +26,13 @@ from .cloud import CloudError, NoCloudData, SessionExpired
 
 log = logging.getLogger(__name__)
 
+# Import lambat untuk hindari siklik (absen memakai auto/sim).
+import importlib
+
+
+def _absen_mod():
+    return importlib.import_module(".absen", __package__)
+
 WIB = ZoneInfo("Asia/Jakarta")
 
 
@@ -208,6 +215,51 @@ def muat_semua_mode_kejar(scheduler: AsyncIOScheduler, app, store) -> int:
     return jumlah
 
 
+# -- Mode Kerja 24/7 ----------------------------------------------------------
+
+def kerja_job_id(chat_id: int) -> str:
+    return f"kerja:{chat_id}"
+
+
+def atur_mode_kerja(scheduler: AsyncIOScheduler, app, chat_id: int) -> None:
+    """Buat/ganti job Mode Kerja 24/7 chat ini (tiap 5 menit, WIB)."""
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    from . import kerja as kerja_mod
+
+    try:
+        scheduler.remove_job(kerja_job_id(chat_id))
+    except Exception:
+        pass
+    scheduler.add_job(
+        jalankan_mode_kerja,
+        IntervalTrigger(minutes=kerja_mod.INTERVAL_MENIT, timezone=WIB),
+        args=[app, int(chat_id)],
+        id=kerja_job_id(chat_id),
+        replace_existing=True,
+    )
+
+
+def hapus_mode_kerja(scheduler: AsyncIOScheduler, chat_id: int) -> None:
+    try:
+        scheduler.remove_job(kerja_job_id(chat_id))
+    except Exception:
+        pass
+
+
+def muat_semua_mode_kerja(scheduler: AsyncIOScheduler, app, store) -> int:
+    """Muat ulang semua Mode Kerja 24/7 aktif dari Store saat start."""
+    jumlah = 0
+    for row in store.all_mode_kerja():
+        try:
+            atur_mode_kerja(scheduler, app, int(row["chat_id"]))
+            jumlah += 1
+        except Exception:
+            log.exception("gagal memuat mode kerja chat %s",
+                          row.get("chat_id"))
+    return jumlah
+
+
 def _teks_pengingatan_login(app, chat_id: int, paket: dict) -> tuple[str | None, int | None]:
     """Teks pengingat klaim login harian (Pemula+), tanpa mengirim.
 
@@ -277,6 +329,16 @@ def _ringkas_siklus(hasil: dict) -> list[str]:
             f"Cuan hari ini: {_format_rupiah(laba)}"
             + (" (UNTUNG)" if laba > 0
                else " (RUGI)" if laba < 0 else " (IMPAS)"))
+    # Hadiah absen harian game (fitur /absen) bila ada di siklus ini.
+    hasil_absen = hasil.get("absen")
+    if hasil_absen is not None and hasil_absen.get("ok"):
+        jumlah = int(hasil_absen.get("jumlah", 0))
+        n = int(hasil_absen.get("hari_siklus", 0))
+        pengali = int(_absen_mod().BONUS_SIKLUS.get(n, 1))
+        teks = f"Absen hari siklus ke-{n}: +{_format_rupiah(jumlah)}"
+        if pengali > 1:
+            teks += f" (bonus {pengali}x)"
+        baris.append(teks)
     if hasil.get("batas_terlampaui"):
         baris.append("Batas harian terlampaui — simulasi tidak diterapkan.")
     jaga = [a for a in hasil["aksi"]
@@ -424,9 +486,13 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
     pengingat_teks, pengingat_n = _teks_pengingatan_login(
         app, chat_id, state["paket"])
 
-    # Siklus murni (tanpa I/O).
+    # Siklus murni (tanpa I/O). Absen harian game (fitur /absen):
+    # baca pengaturan + posisi siklus dari Store, pass ke siklus.
+    absen = store.get_absen(chat_id)
     hasil = auto_mod.jalankan_siklus(state["slot"], data, tugas_data,
-                                     tier, batas)
+                                     tier, batas,
+                                     absen_nominal=absen["nominal"],
+                                     absen_hari_ke=absen["hari_ke"])
 
     # Unggah sekali (dengan cek versi seperti alur konfirmasi).
     pending = {
@@ -487,7 +553,17 @@ async def jalankan_siklus_otomatis(app, chat_id: int) -> None:
         elif a.get("aksi") == "jaga_saldo" and a.get("ok"):
             detail = (f"+{_format_rupiah(a.get('jumlah', 0))} "
                       f"(dari {_format_rupiah(a.get('dari', 0))})")
+        elif a.get("aksi") == "absen" and a.get("ok"):
+            detail = (f"+{_format_rupiah(a.get('jumlah', 0))} "
+                      f"(hari siklus ke-{a.get('hari_siklus', 0)}"
+                      + (f", bonus {a.get('bonus', 0)})"
+                         if int(a.get("bonus", 0)) > 0 else ")"))
         store.log_audit(chat_id, str(a.get("aksi", "?")), detail)
+
+    # Sukses: majukan posisi siklus absen (bila absen aktif).
+    if absen["nominal"] > 0 and hasil.get("absen") is not None:
+        berikut = _absen_mod().berikutnya(absen["hari_ke"])
+        store.set_absen_hari_ke(chat_id, berikut)
 
     # Diusir (dari simulasi)? Berhenti total — kios sudah hilang.
     if hasil["slot"].get("diusir"):
@@ -626,8 +702,11 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
         await _matikan_mode_target(app, chat_id, alasan)
         return
 
+    absen = store.get_absen(chat_id)
     hasil = target_mod.satu_siklus_target(slot_masuk, data, tugas_data,
-                                          tier, batas)
+                                          tier, batas,
+                                          absen_nominal=absen["nominal"],
+                                          absen_hari_ke=absen["hari_ke"])
     siklus_baru = store.tambah_siklus_target(chat_id)
 
     pending = {
@@ -668,6 +747,15 @@ async def jalankan_mode_target(app, chat_id: int) -> None:
             total_jaga += int(a.get("jumlah", 0))
             store.log_audit(chat_id, "jaga_saldo",
                             f"+{_format_rupiah(a.get('jumlah', 0))}")
+        elif a.get("aksi") == "absen" and a.get("ok"):
+            store.log_audit(chat_id, "absen",
+                            f"+{_format_rupiah(a.get('jumlah', 0))} "
+                            f"(hari siklus ke-{a.get('hari_siklus', 0)})")
+
+    # Sukses: majukan posisi siklus absen (bila absen aktif).
+    if absen["nominal"] > 0 and hasil.get("absen") is not None:
+        store.set_absen_hari_ke(chat_id, _absen_mod().berikutnya(
+            absen["hari_ke"]))
 
     if hasil["slot"].get("diusir"):
         await _matikan_mode_target(app, chat_id, "diusir",
@@ -822,8 +910,11 @@ async def jalankan_mode_kejar(app, chat_id: int) -> None:
             await _matikan_mode_kejar(app, chat_id, alasan)
         return
 
+    absen = store.get_absen(chat_id)
     hasil = kejar_mod.satu_siklus_kejar(slot_masuk, data, tugas_data,
-                                        tier, batas)
+                                        tier, batas,
+                                        absen_nominal=absen["nominal"],
+                                        absen_hari_ke=absen["hari_ke"])
     # Hitungan siklus hanya untuk siklus yang DITERAPKAN (upload sukses):
     # bila upload gagal, hari sim dibuang dan siklus tidak dihitung.
     siklus_baru = int(mode["siklus"]) + 1
@@ -867,6 +958,15 @@ async def jalankan_mode_kejar(app, chat_id: int) -> None:
             total_jaga += int(a.get("jumlah", 0))
             store.log_audit(chat_id, "jaga_saldo",
                             f"+{_format_rupiah(a.get('jumlah', 0))}")
+        elif a.get("aksi") == "absen" and a.get("ok"):
+            store.log_audit(chat_id, "absen",
+                            f"+{_format_rupiah(a.get('jumlah', 0))} "
+                            f"(hari siklus ke-{a.get('hari_siklus', 0)})")
+
+    # Sukses: majukan posisi siklus absen (bila absen aktif).
+    if absen["nominal"] > 0 and hasil.get("absen") is not None:
+        store.set_absen_hari_ke(chat_id, _absen_mod().berikutnya(
+            absen["hari_ke"]))
 
     if hasil["slot"].get("diusir"):
         await _matikan_mode_kejar(app, chat_id, "diusir",
@@ -922,6 +1022,176 @@ def cuan_aktif_slot(slot: dict) -> bool:
     """Mode cuan aktif di slot? (import sim untuk menghindari cyclic)."""
     from . import sim as sim_mod
     return sim_mod.cuan_aktif(slot)
+
+
+async def _matikan_mode_kerja(app, chat_id: int, alasan: str,
+                              kabari: bool = True, info_jaga: int = 0,
+                              info_cuan: str = "") -> None:
+    """Matikan Mode Kerja 24/7: hapus state + job, lalu kabari pengguna."""
+    from . import kerja as kerja_mod
+
+    store = app.bot_data["store"]
+    scheduler = app.bot_data.get("scheduler")
+    if scheduler is not None:
+        hapus_mode_kerja(scheduler, chat_id)
+    store.hapus_mode_kerja(chat_id)
+    store.log_audit(chat_id, "mode_kerja_berhenti", alasan)
+    if not kabari:
+        return
+    teks = (f"Mode Kerja 24/7 berhenti. {kerja_mod.teks_berhenti(alasan)}")
+    if info_jaga > 0:
+        teks += (f"\nPenjaga Saldo menambah {_format_rupiah(info_jaga)} "
+                 "pada siklus terakhir.")
+    if info_cuan:
+        teks += f"\n{info_cuan}"
+    try:
+        await app.bot.send_message(
+            chat_id=chat_id,
+            text=teks,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Lihat Status",
+                                       callback_data="menu:status")]]
+            ),
+        )
+    except Exception:
+        log.exception("gagal mengabari berhenti mode kerja ke %s", chat_id)
+
+
+async def jalankan_mode_kerja(app, chat_id: int) -> None:
+    """Satu siklus Mode Kerja 24/7, tiap 5 menit = 1 hari game.
+
+    Urutan: ambil state terbaru -> Penjaga Saldo -> satu siklus harian
+    (jalankan_siklus, dengan absen) -> unggah sekali -> lapor cuan singkat
+    + hadiah absen. TANPA target: tidak pernah berhenti karena "tercapai";
+    berhenti hanya bila bermasalah (bentrok, sesi habis, diusir, macet,
+    maks siklus). Satu mode kerja saja: menyalakan ini mematikan Mode
+    Target dan Mode Kejar.
+    """
+    from . import auto as auto_mod
+    from . import kerja as kerja_mod
+    from ..tg.confirm import execute_upload
+    from ..tg.status import fetch_latest_state
+
+    store = app.bot_data["store"]
+    data = app.bot_data["data"]
+    tugas_data = app.bot_data["tugas"]
+    session = store.get_user(chat_id)
+    mode = store.get_mode_kerja(chat_id)
+    if session is None or mode is None:
+        scheduler = app.bot_data.get("scheduler")
+        if scheduler is not None:
+            hapus_mode_kerja(scheduler, chat_id)
+        return
+    tier = store.get_tier(chat_id)
+    batas = store.get_batas_harian(chat_id)
+    ctx = SimpleNamespace(bot_data=app.bot_data)
+    try:
+        state = await fetch_latest_state(ctx, chat_id)
+    except SessionExpired:
+        await _matikan_mode_kerja(app, chat_id, "sesi_habis")
+        return
+    except (NoCloudData, CloudError, save_mod.PackageError,
+            save_mod.SlotError) as exc:
+        log.warning("mode kerja chat %s dilewati: %s", chat_id, exc)
+        return
+
+    # Penjaga Saldo — perbaiki uang minus sebelum siklus.
+    slot_masuk, tambah_awal = auto_mod.jaga_saldo(state["slot"])
+
+    # Satu mode kerja saja: matikan Target & Kejar bila nyala.
+    if store.get_mode_target(chat_id) is not None:
+        scheduler = app.bot_data.get("scheduler")
+        if scheduler is not None:
+            hapus_mode_target(scheduler, chat_id)
+        store.hapus_mode_target(chat_id)
+        store.log_audit(chat_id, "mode_target_berhenti", "ganti_mode_kerja")
+    if store.get_mode_kejar(chat_id) is not None:
+        scheduler = app.bot_data.get("scheduler")
+        if scheduler is not None:
+            hapus_mode_kejar(scheduler, chat_id)
+        store.hapus_mode_kejar(chat_id)
+        store.log_audit(chat_id, "mode_kejar_berhenti", "ganti_mode_kerja")
+
+    absen = store.get_absen(chat_id)
+    hasil = auto_mod.jalankan_siklus(
+        slot_masuk, data, tugas_data, tier, batas,
+        absen_nominal=absen["nominal"], absen_hari_ke=absen["hari_ke"])
+
+    pending = {
+        "kind": "siklus",
+        "id_papan": state["ringkasan"]["id_papan"],
+        "p_data": None,
+        "versi_dasar": int(state["versi"]),
+        "slot_akhir": hasil["slot"],
+        "ringkasan": "Mode Kerja 24/7: 1 hari diterapkan",
+    }
+    try:
+        teks, status = await execute_upload(ctx, chat_id, pending)
+    except Exception:
+        log.exception("mode kerja chat %s gagal saat upload", chat_id)
+        return
+    if status == "bentrok":
+        await _matikan_mode_kerja(app, chat_id, "bentrok")
+        return
+    if status == "sesi_habis":
+        await _matikan_mode_kerja(app, chat_id, "sesi_habis")
+        return
+    if status != "ok":
+        log.warning("mode kerja chat %s gagal: %s", chat_id, teks)
+        return
+    siklus_baru = store.tambah_siklus_kerja(chat_id)
+
+    # Sukses: audit + majukan posisi absen.
+    total_jaga = int(tambah_awal)
+    if tambah_awal > 0:
+        store.log_audit(chat_id, "jaga_saldo",
+                        f"+{_format_rupiah(tambah_awal)} (awal siklus)")
+    for a in hasil["aksi"]:
+        if a.get("aksi") in ("bayar_misi", "beli_upgrade") and a.get("ok"):
+            store.log_audit(chat_id, str(a["aksi"]),
+                            _format_rupiah(a.get("jumlah", 0)))
+        elif a.get("aksi") == "jaga_saldo" and a.get("ok"):
+            total_jaga += int(a.get("jumlah", 0))
+            store.log_audit(chat_id, "jaga_saldo",
+                            f"+{_format_rupiah(a.get('jumlah', 0))}")
+        elif a.get("aksi") == "absen" and a.get("ok"):
+            store.log_audit(chat_id, "absen",
+                            f"+{_format_rupiah(a.get('jumlah', 0))} "
+                            f"(hari siklus ke-{a.get('hari_siklus', 0)})")
+    if absen["nominal"] > 0 and hasil.get("absen") is not None:
+        store.set_absen_hari_ke(chat_id, _absen_mod().berikutnya(
+            absen["hari_ke"]))
+
+    # Pesan cuan singkat + hadiah absen untuk siklus ini.
+    baris = []
+    if cuan_aktif_slot(hasil["slot"]):
+        baris.append(_teks_cuan_kejar(hasil))
+    hasil_absen = hasil.get("absen")
+    if hasil_absen is not None and hasil_absen.get("ok"):
+        jumlah = int(hasil_absen.get("jumlah", 0))
+        n = int(hasil_absen.get("hari_siklus", 0))
+        pengali = _absen_mod().BONUS_SIKLUS.get(n, 1)
+        t = f"Absen hari siklus ke-{n}: +{_format_rupiah(jumlah)}"
+        if pengali > 1:
+            t += f" (bonus {pengali}x)"
+        baris.append(t)
+
+    alasan = kerja_mod.alasan_berhenti(hasil["slot"], siklus_baru)
+    if alasan is not None:
+        await _matikan_mode_kerja(app, chat_id, alasan,
+                                  info_jaga=total_jaga,
+                                  info_cuan="\n".join(baris))
+        return
+
+    # Kirim laporan singkat (cuan + absen) bila ada isinya.
+    if baris:
+        try:
+            await app.bot.send_message(
+                chat_id=chat_id,
+                text="\n".join(baris),
+            )
+        except Exception:
+            log.exception("gagal mengirim laporan kerja ke %s", chat_id)
 
 
 def muat_semua_jadwal(scheduler: AsyncIOScheduler, app, store) -> int:

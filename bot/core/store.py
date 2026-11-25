@@ -156,6 +156,12 @@ class Store:
                 dimulai     INTEGER NOT NULL,
                 updated_at  INTEGER
             );
+            CREATE TABLE IF NOT EXISTS mode_kerja (
+                chat_id     INTEGER PRIMARY KEY,
+                siklus      INTEGER NOT NULL DEFAULT 0,
+                dimulai     INTEGER NOT NULL,
+                updated_at  INTEGER
+            );
             """
         )
         self._conn.commit()
@@ -341,6 +347,26 @@ class Store:
             (chat_id, str(kunci), str(nilai), int(time.time())),
         )
         self._conn.commit()
+
+    # -- absen harian game (fitur /absen) --------------------------------
+    def get_absen(self, chat_id: int) -> dict:
+        """Pengaturan + posisi siklus absen. Default: mati (nominal 0)."""
+        nominal = self.meta_get(chat_id, "absen_nominal")
+        hari = self.meta_get(chat_id, "absen_hari_ke")
+        return {
+            "nominal": int(nominal) if nominal else 0,
+            "hari_ke": int(hari) if hari else 0,  # 0 = belum pernah absen
+        }
+
+    def set_absen_nominal(self, chat_id: int, nominal: int) -> None:
+        """Atur nominal hadiah absen harian (0 = absen mati)."""
+        if int(nominal) < 0:
+            raise ValueError("nominal tidak boleh negatif")
+        self.meta_set(chat_id, "absen_nominal", str(int(nominal)))
+
+    def set_absen_hari_ke(self, chat_id: int, hari_ke: int) -> None:
+        """Simpan posisi siklus absen terakhir (1-30)."""
+        self.meta_set(chat_id, "absen_hari_ke", str(int(hari_ke)))
 
     # -- tier + otomatis (Fase 3) ---------------------------------------
     def get_tier(self, chat_id: int) -> int:
@@ -564,6 +590,56 @@ class Store:
                  "target_peringkat": int(r["target_peringkat"]),
                  "target_pembeli": int(r["target_pembeli"]),
                  "siklus": int(r["siklus"]),
+                 "dimulai": int(r["dimulai"])} for r in rows]
+
+    # -- mode kerja 24/7 (fitur /kerja) -----------------------------------
+    def get_mode_kerja(self, chat_id: int) -> dict | None:
+        """Mode Kerja 24/7 aktif chat ini, atau None bila tidak aktif."""
+        row = self._conn.execute(
+            "SELECT siklus, dimulai FROM mode_kerja WHERE chat_id=?",
+            (chat_id,)).fetchone()
+        if row is None:
+            return None
+        return {"siklus": int(row["siklus"]), "dimulai": int(row["dimulai"])}
+
+    def set_mode_kerja(self, chat_id: int) -> None:
+        """Nyalakan Mode Kerja 24/7 (siklus dihitung dari 0)."""
+        kini = int(time.time())
+        self._conn.execute(
+            """
+            INSERT INTO mode_kerja (chat_id, siklus, dimulai, updated_at)
+            VALUES (?, 0, ?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                siklus=0, dimulai=excluded.dimulai,
+                updated_at=excluded.updated_at
+            """,
+            (chat_id, kini, kini),
+        )
+        self._conn.commit()
+
+    def tambah_siklus_kerja(self, chat_id: int) -> int:
+        """Naikkan hitungan siklus Mode Kerja; kembalikan jumlah baru."""
+        self._conn.execute(
+            "UPDATE mode_kerja SET siklus=siklus+1, updated_at=? "
+            "WHERE chat_id=?", (int(time.time()), chat_id),
+        )
+        self._conn.commit()
+        row = self._conn.execute(
+            "SELECT siklus FROM mode_kerja WHERE chat_id=?", (chat_id,)
+        ).fetchone()
+        return int(row["siklus"]) if row is not None else 0
+
+    def hapus_mode_kerja(self, chat_id: int) -> None:
+        """Matikan Mode Kerja 24/7 chat ini."""
+        self._conn.execute(
+            "DELETE FROM mode_kerja WHERE chat_id=?", (chat_id,))
+        self._conn.commit()
+
+    def all_mode_kerja(self) -> list[dict]:
+        """Semua chat dengan Mode Kerja aktif (muat ulang job saat start)."""
+        rows = self._conn.execute(
+            "SELECT chat_id, siklus, dimulai FROM mode_kerja").fetchall()
+        return [{"chat_id": r["chat_id"], "siklus": int(r["siklus"]),
                  "dimulai": int(r["dimulai"])} for r in rows]
 
     # -- log audit (Fase 3) ---------------------------------------------

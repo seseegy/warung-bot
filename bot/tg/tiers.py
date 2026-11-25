@@ -108,6 +108,7 @@ def _panel_otomatis(store, chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
     jam = store.get_jam_otomatis(chat_id)
     mode = store.get_mode_target(chat_id)
     kejar = store.get_mode_kejar(chat_id)
+    kerja = store.get_mode_kerja(chat_id)
     teks = (
         f"Otomatisasi: {'NYALA' if otomatis else 'MATI'}\n"
         f"Tier: {tier} ({tiers_mod.TIER_NAMA[tier]})\n"
@@ -115,9 +116,12 @@ def _panel_otomatis(store, chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
         f"Mode Target Level: "
         f"{'NYALA — target Level ' + str(mode['target_tingkat']) + ' (siklus ' + str(mode['siklus']) + ')' if mode else 'MATI'}\n"
         f"Mode Kejar Papan: "
-        f"{'NYALA — target peringkat ' + str(kejar['target_peringkat']) + ' (batas ' + str(kejar['target_pembeli']) + ' pembeli, siklus ' + str(kejar['siklus']) + ')' if kejar else 'MATI'}\n\n"
-        "Bila nyala, bot menjalankan siklus tiap hari pada jam itu: "
-        "ambil simpanan terbaru, jalankan aksi sesuai tier, unggah sekali. "
+        f"{'NYALA — target peringkat ' + str(kejar['target_peringkat']) + ' (batas ' + str(kejar['target_pembeli']) + ' pembeli, siklus ' + str(kejar['siklus']) + ')' if kejar else 'MATI'}\n"
+        f"Mode Kerja 24/7: "
+        f"{'NYALA — siklus ' + str(kerja['siklus']) if kerja else 'MATI'}\n\n"
+        "Siklus harian = 1 hari game per hari nyata (jam tetap). "
+        "Mode Target/Kejar/Kerja = 1 hari game tiap 5 menit. "
+        "Mode Kerja 24/7 jalan terus TANPA target sampai dimatikan. "
         "Game harus TERTUTUP saat siklus jalan — bila game terbuka dan "
         "mengunggah, siklus dibatalkan supaya tidak ada yang tertimpa."
     )
@@ -138,6 +142,12 @@ def _panel_otomatis(store, chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
     else:
         baris.append([InlineKeyboardButton(
             "Kejar Papan", callback_data="kejar:pilih")])
+    if kerja:
+        baris.append([InlineKeyboardButton(
+            "Berhentikan Mode Kerja", callback_data="kerja:berhenti")])
+    else:
+        baris.append([InlineKeyboardButton(
+            "Kerja 24/7 (terus)", callback_data="kerja:mulai")])
     baris.append([InlineKeyboardButton("Kembali ke Menu",
                                        callback_data="menu:root")])
     return teks, InlineKeyboardMarkup(baris)
@@ -609,6 +619,52 @@ async def _tangani_kejar(query, context, chat_id: int, data: str) -> bool:
         store.log_audit(chat_id, "mode_kejar_berhenti", "manual")
         await query.edit_message_text(
             "Mode Kejar Papan DIMATIKAN.",
+            reply_markup=kb.back_to_menu(),
+        )
+        return True
+
+    if data == "kerja:mulai":
+        # Satu mode kerja saja: matikan Target & Kejar bila nyala.
+        if store.get_mode_target(chat_id) is not None:
+            store.hapus_mode_target(chat_id)
+            if scheduler is not None:
+                jobs_mod.hapus_mode_target(scheduler, chat_id)
+            store.log_audit(chat_id, "mode_target_berhenti", "ganti_mode_kerja")
+        if store.get_mode_kejar(chat_id) is not None:
+            store.hapus_mode_kejar(chat_id)
+            if scheduler is not None:
+                jobs_mod.hapus_mode_kejar(scheduler, chat_id)
+            store.log_audit(chat_id, "mode_kejar_berhenti", "ganti_mode_kerja")
+        # Siklus otomatis harian juga dimatikan (jangan dobel jalan).
+        if store.get_otomatis(chat_id):
+            store.set_otomatis(chat_id, False)
+            if scheduler is not None:
+                jobs_mod.hapus_siklus(scheduler, chat_id)
+            store.log_audit(chat_id, "otomatis_mati", "ganti_mode_kerja")
+        store.set_mode_kerja(chat_id)
+        if scheduler is not None:
+            jobs_mod.atur_mode_kerja(scheduler, context.application, chat_id)
+        store.log_audit(chat_id, "mode_kerja_mulai", "1 hari game / 5 menit")
+        await query.edit_message_text(
+            "Mode Kerja 24/7 NYALA — 1 hari game tiap 5 menit, jalan "
+            "terus sampai dimatikan. Absen + cuan ikut jalan tiap siklus.",
+            reply_markup=kb.back_to_menu(),
+        )
+        return True
+
+    if data == "kerja:berhenti":
+        if store.get_mode_kerja(chat_id) is None:
+            await query.edit_message_text(
+                "Mode Kerja 24/7 sedang tidak nyala.",
+                reply_markup=kb.back_to_menu(),
+            )
+            return True
+        store.hapus_mode_kerja(chat_id)
+        if scheduler is not None:
+            jobs_mod.hapus_mode_kerja(scheduler, chat_id)
+        store.log_audit(chat_id, "mode_kerja_berhenti", "manual")
+        await query.edit_message_text(
+            "Mode Kerja 24/7 DIMATIKAN.",
             reply_markup=kb.back_to_menu(),
         )
         return True
