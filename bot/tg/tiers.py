@@ -979,7 +979,8 @@ async def on_callback_tier(update, context: ContextTypes.DEFAULT_TYPE,
     if data.startswith("target:"):
         return await _tangani_target(query, context, chat_id, data)
 
-    if data.startswith("kejar:"):
+    if data.startswith(("kejar:", "kerja:")):
+        # _tangani_kejar menangani kejar:* dan kerja:* (Mode Kerja 24/7).
         return await _tangani_kejar(query, context, chat_id, data)
 
     if data.startswith("login:"):

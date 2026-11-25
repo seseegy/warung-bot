@@ -1122,6 +1122,7 @@ async def jalankan_mode_kerja(app, chat_id: int) -> None:
         "id_papan": state["ringkasan"]["id_papan"],
         "p_data": None,
         "versi_dasar": int(state["versi"]),
+        "nomor_slot": int(state["nomor_slot"]),
         "slot_akhir": hasil["slot"],
         "ringkasan": "Mode Kerja 24/7: 1 hari diterapkan",
     }
