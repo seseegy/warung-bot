@@ -66,9 +66,15 @@ Seluruh rumus digrounding ke kode hasil decompile GDRE (BUKAN ditebak):
 Yang TIDAK disimulasikan (dinyatakan jujur di hasil): ulasan/reputasi
 dinamis (bintang ditahan dari save), cuaca & event acak, hutang pelanggan,
 minigame tip/QRIS, titipan sales, grosir, jelajah, kerja sampingan,
-cerita/misi (uang misi tidak dibayar di sim), harga pasar Senin
-(``harga_pasaran`` ditahan dari save), sakit, palak/pencurian. Hasil
-simulasi adalah PROYEKSI, bukan replay persis game.
+harga pasar Senin (``harga_pasaran`` ditahan dari save), sakit, palak/
+pencurian. Misi cerita DIBAYAR di sim bila menjadi satu-satunya penghalang
+naik level dan mampu sekali lunas dengan cadangan Rp50.000 (lihat
+``_cek_tugas``); buka barang saat cerita tamat dimodelkan
+(``buka_semua_cerita``); hari_minus/bangkrut dimodelkan (``_tutup_hari``).
+Buka barang dari event warga ("tolong"), titipan sales, dan Ramadan TIDAK
+disimulasikan sebagai kejadian — sim hanya memakai ``barang_terbuka`` yang
+sudah ada di save (diperbaiki saat load, ``perbaiki_barang_terbuka``).
+Hasil simulasi adalah PROYEKSI, bukan replay persis game.
 """
 
 from __future__ import annotations
@@ -134,6 +140,16 @@ TAMBAHAN_AGEN = 0.1
 HARGA_JUAL_MAKS = 1.3
 MAKS_STOK_BARANG = 100
 BIAYA_HARIAN = {"casual": 10000, "hard": 20000}
+# Bangkrut (tutup_hari, game_state.gd:136,6734-6738): hari_minus >= batas
+# (casual 3, hard 1) ATAU diusir. Diusir bila sewa menunggak 3 minggu
+# (MINGGU_DIUSIR, game_state.gd:6331,6472).
+BATAS_HARI_MINUS = {"casual": 3, "hard": 1}
+MINGGU_DIUSIR = 3
+# Cadangan uang minimum bot (Rp50.000) — KEBIJAKAN BOT, bukan aturan game.
+# Diselaraskan dengan auto.CADANGAN_UANG_MIN; disalin ke sini karena sim
+# tidak boleh mengimpor auto (circular: auto mengimpor sim). Bila nilainya
+# berubah di satu tempat, ubah juga di tempat lain.
+CADANGAN_UANG_MIN = 50_000
 JUMLAH_ISI_OTOMATIS = 50000
 LEVEL_AGEN = 2
 BARANG_TITIPAN = {"roti", "jamu"}  # SALES_TITIPAN (game_state.gd:10705)
@@ -718,11 +734,150 @@ def pesanan_acak(data: GameData, slot: dict, tipe: dict, menit: float,
 
 
 # ======================================================================
+# Buka barang (cerita / event / titipan / Ramadan)
+# ======================================================================
+
+def level_pembuka(data: GameData, item_id: str) -> int:
+    """Level yang membuka barang ini lewat tugas (game_state.gd:7974).
+
+    Level pertama (1-based) yang daftar ``buka``-nya memuat item ini;
+    0 bila tidak ada level yang membukanya (terbuka sejak awal ATAU
+    lewat jalur lain: cerita, event, titipan, Ramadan).
+    """
+    for i, t in enumerate(data.tugas):
+        if item_id in (t.get("buka", []) or []):
+            return i + 1
+    return 0
+
+
+def _barang_dari_upgrade(data: GameData) -> set:
+    """Item yang dibuka via efek upgrade (game_state.gd:7995).
+
+    Di v1.2 tidak ada upgrade yang punya efek ``buka_barang`` (himpunan
+    kosong) — fungsi ini ada supaya cermin tetap setia bila data berubah.
+    """
+    hasil: set = set()
+    for u in (data.upgrade.get("upgrade", []) or []):
+        for item_id in (u.get("efek", {}) or {}).get("buka_barang", []) or []:
+            hasil.add(item_id)
+    return hasil
+
+
+def _item_event(data: GameData) -> set:
+    """Item yang dibuka via event warga (hasil.tolong.buka)."""
+    hasil: set = set()
+    for data_ev in data.event.values():
+        for item_id in (data_ev.get("hasil", {}).get("tolong", {})
+                        .get("buka", []) or []):
+            hasil.add(item_id)
+    return hasil
+
+
+def buka_semua_cerita(slot: dict, data: GameData) -> list:
+    """Daftar barang_terbuka baru saat cerita tamat (murni).
+
+    Cermin ``_semua_barang_cerita()`` (game_state.gd:8002-8021): buka
+    SEMUA barang KECUALI yang dibuka via upgrade, item event yang belum
+    terbuka, dan item titipan yang belum terbuka; sisanya dibuka bila
+    ``level_pembuka(id) == 0`` atau ``<= level`` saat itu. Item yang
+    sudah terbuka dipertahankan (termasuk item event/titipan yang sudah
+    terbuka sebelum cerita tamat). Mengembalikan list BARU (slot tidak
+    diubah); urutan mengikuti ``data.urutan_barang`` seperti game.
+    """
+    terbuka = set(slot.get("barang_terbuka", []) or [])
+    kunci = _barang_dari_upgrade(data)
+    dari_event = _item_event(data)
+    level = int(slot.get("tingkat", 0)) + 1
+    hasil: list = []
+    for item_id in data.urutan_barang:
+        if item_id in kunci:
+            continue
+        if item_id in dari_event and item_id not in terbuka:
+            continue
+        if item_id in BARANG_TITIPAN and item_id not in terbuka:
+            continue
+        if level_pembuka(data, item_id) == 0 \
+                or level >= level_pembuka(data, item_id):
+            hasil.append(item_id)
+    # Barang di luar katalog (bila ada di save) dipertahankan apa adanya.
+    for item_id in terbuka:
+        if item_id not in hasil and item_id not in data.katalog:
+            hasil.append(item_id)
+    return hasil
+
+
+def perbaiki_barang_terbuka(slot: dict, data: GameData) -> list:
+    """Perbaiki barang_terbuka seperti game saat load (murni).
+
+    Cermin perbaikan load (game_state.gd:3883-3896) + ``_buka_barang_
+    upgrade()`` (:8041) + ``_buka_barang_agen()`` (:8034) +
+    ``_cek_barang_ramadan(false)`` (:7782):
+
+    - bila cerita sudah tamat -> ``buka_semua_cerita()`` (cabang else
+      load game);
+    - selain itu: harus_terbuka = terbuka_awal + bab[0..bab-1].buka +
+      tingkat[0..tingkat].buka, ditambahkan bila belum ada;
+    - ditambah barang dari upgrade yang dimiliki (efek buka_barang);
+    - ditambah barang agen (event warga hasil "tolak", lewat
+      ``agen_items()`` — jalur agen Pak Misran, markup 10%);
+    - ditambah kurma/sirup bila hari >= RAMADAN_MULAI (55).
+
+    Item event warga ("tolong") SENGAJA TIDAK ditambahkan: game hanya
+    membukanya saat event diselesaikan (``_buka_barang`` dari hasil
+    event), bukan saat load — menambahkannya di sini akan membuka barang
+    yang pemainnya belum pernah menolong warga. Mengembalikan list BARU
+    (slot tidak diubah).
+    """
+    if bool(slot.get("cerita_tamat")):
+        return buka_semua_cerita(slot, data)
+    terbuka = list(slot.get("barang_terbuka", []) or [])
+    punya = set(terbuka)
+
+    def _tambah(item_id: str) -> None:
+        if item_id not in punya:
+            punya.add(item_id)
+            terbuka.append(item_id)
+
+    harus: list = list((data.cerita.get("terbuka_awal", []) or []))
+    daftar_bab = (data.cerita.get("bab", []) or [])
+    bab = int(slot.get("bab", 0))
+    for i in range(min(bab, len(daftar_bab))):
+        harus.extend(daftar_bab[i].get("buka", []) or [])
+    tingkat = int(slot.get("tingkat", 0))
+    for i in range(min(tingkat + 1, len(data.tugas))):
+        harus.extend(data.tugas[i].get("buka", []) or [])
+    for item_id in harus:
+        _tambah(item_id)
+    # Barang dari upgrade yang dimiliki.
+    for uid in (slot.get("upgrade", []) or []):
+        info = data.upgrade_by_id.get(str(uid), {})
+        for item_id in (info.get("efek", {}) or {}).get("buka_barang", []) or []:
+            _tambah(item_id)
+    # Barang agen (event "tolak").
+    for item_id in agen_items(data, slot):
+        _tambah(item_id)
+    # Barang Ramadan.
+    if int(slot.get("hari", 1)) >= RAMADAN_MULAI:
+        for item_id in BARANG_RAMADAN:
+            if item_id in data.katalog:
+                _tambah(item_id)
+    return terbuka
+
+
+# ======================================================================
 # Simulasi satu hari
 # ======================================================================
 
-def _normalisasi_slot(slot: dict) -> dict:
-    """Salinan slot dengan default aman untuk semua field yang dibaca sim."""
+def _normalisasi_slot(slot: dict, data: GameData | None = None) -> dict:
+    """Salinan slot dengan default aman untuk semua field yang dibaca sim.
+
+    Bila ``data`` diberikan, ``barang_terbuka`` juga diperbaiki seperti
+    game saat load (``perbaiki_barang_terbuka``) — semua jalur sim yang
+    membawa data (``simulate``, ``plan``, ``strategi``) memanggilnya
+    dengan data supaya proyeksi berangkat dari set barang yang setia
+    dengan game. Tanpa data (mis. aksi cepat yang hanya mengedit save),
+    daftar barang dipakai apa adanya.
+    """
     s = copy.deepcopy(slot)
     s.setdefault("mode", "casual")
     s.setdefault("hari", 1)
@@ -741,7 +896,13 @@ def _normalisasi_slot(slot: dict) -> dict:
     s.setdefault("hari_level_mulai", 1)
     s.setdefault("upgrade", [])
     s.setdefault("misi_status", "")
+    s.setdefault("bab", 0)
+    s.setdefault("target_bab", 0)
+    s.setdefault("kiriman_bab", 0)
     s.setdefault("cerita_tamat", False)
+    s.setdefault("hari_minus", 0)
+    s.setdefault("bangkrut", False)
+    s.setdefault("lindungi_hari_minus", False)
     s.setdefault("kios_milik", False)
     s.setdefault("rumah_renovasi", False)
     s.setdefault("motor_baru", False)
@@ -779,6 +940,9 @@ def _normalisasi_slot(slot: dict) -> dict:
                   "agen_kenalan", "riwayat"):
         if not isinstance(s.get(kunci), list):
             s[kunci] = []
+    # Perbaikan barang_terbuka seperti game saat load (bila data ada).
+    if data is not None:
+        s["barang_terbuka"] = perbaiki_barang_terbuka(s, data)
     return s
 
 
@@ -818,44 +982,138 @@ def _istirahat(s: dict, rng: random.Random) -> bool:
     return False
 
 
+def _level_bab(daftar_bab: list, i: int) -> int:
+    """Level milik bab ke-i (game_state.gd:4336): field 'level' atau i+1."""
+    try:
+        return int(daftar_bab[i].get("level", i + 1))
+    except (IndexError, TypeError, ValueError):
+        return i + 1
+
+
+def _bayar_misi_sim(s: dict, data: GameData) -> bool:
+    """Bayar misi cerita di dalam sim (mengubah s di tempat).
+
+    Cermin ``kirim_uang()`` (game_state.gd:4384): bila misi "aktif",
+    bayar SEKALI LUNAS (tidak bisa dicicil) — TAPI hanya bila sesudah
+    bayar uang masih >= CADANGAN_UANG_MIN (Rp50.000). Cadangan ini
+    tambahan bot (bukan aturan game): supaya sim tidak menghabiskan uang
+    sampai Rp0 untuk misi lalu tidak bisa restock — selaras dengan
+    ``bayar_misi`` di auto.py dan ``beli_upgrade_syarat``. Bila
+    kekurangan sudah 0 (save tidak konsisten), misi dianggap lunas tanpa
+    bayar. Mengembalikan True bila misi kini "lunas". Jumlah yang dibayar
+    dicatat ke ``s["_bayar_misi"]`` (dibersihkan ``simulate()`` dan
+    dilaporkan di hasil sim supaya siklus otomatis bisa mengauditnya).
+    """
+    if str(s.get("misi_status", "")) != "aktif":
+        return False
+    kurang = max(int(s.get("target_bab", 0)) - int(s.get("kiriman_bab", 0)), 0)
+    if kurang <= 0:
+        s["misi_status"] = "lunas"
+        return True
+    if int(s.get("uang", 0)) - kurang < CADANGAN_UANG_MIN:
+        return False
+    s["uang"] = int(s.get("uang", 0)) - kurang
+    s["kiriman_bab"] = int(s.get("target_bab", 0))
+    s["misi_status"] = "lunas"
+    s["_bayar_misi"] = int(s.get("_bayar_misi", 0) or 0) + kurang
+    return True
+
+
+def _siapkan_misi_berikutnya(s: dict, data: GameData) -> None:
+    """Siapkan misi bab berikutnya setelah naik level (di tempat).
+
+    Cermin ``_siapkan_misi_level()`` (game_state.gd:4469): bab yang
+    levelnya < level saat itu DILEWATI (tidak pernah memberi misi lagi
+    — seperti game, ini yang membuat bab tertinggal dari level tidak
+    pernah terbuka lewat cerita); bila bab berikutnya levelnya > level
+    saat itu, belum ada misi (misi_status ""). Perbedaan yang disengaja:
+    misi berikutnya langsung "aktif", tanpa jeda "menunggu" JEDA_AGUS
+    (2 hari, game_state.gd:180,4482) — sim tidak memodelkan hari tunggu
+    Agus menghubungi. Dipanggil hanya bila cerita belum tamat.
+    """
+    daftar_bab = (data.cerita.get("bab", []) or [])
+    if not daftar_bab:
+        return
+    bab = int(s.get("bab", 0))
+    misi = str(s.get("misi_status", ""))
+    calon = bab if misi in ("menunggu", "aktif") else bab + 1
+    level = int(s.get("tingkat", 0)) + 1
+    while (calon < len(daftar_bab) and misi not in ("menunggu", "aktif")
+           and _level_bab(daftar_bab, calon) < level):
+        calon += 1
+    if (misi in ("menunggu", "aktif") or calon >= len(daftar_bab)
+            or _level_bab(daftar_bab, calon) > level):
+        if misi not in ("menunggu", "aktif"):
+            s["misi_status"] = ""
+        return
+    s["bab"] = calon
+    s["kiriman_bab"] = 0
+    s["target_bab"] = int(daftar_bab[calon].get("target", 0))
+    s["misi_status"] = "aktif"
+
+
 def _cek_tugas(s: dict, data: GameData) -> bool:
     """Cek naik level seperti ``_cek_tugas()`` (game_state.gd:3158).
 
     Mengembalikan True bila naik level (hadiah sudah ditambahkan, progres
     direset, barang level baru dibuka). Dipanggil setelah tiap penjualan
     dan tiap pelanggan dilayani — sama seperti game.
+
+    Misi cerita: bila misi "aktif" adalah SATU-SATUNYA penghalang naik
+    level (progres + khusus + upgrade syarat sudah beres), sim membayarnya
+    bila mampu sekali lunas dengan cadangan Rp50.000 (``_bayar_misi_sim``,
+    cermin ``kirim_uang()`` game_state.gd:4384 + cadangan bot); bila tidak
+    mampu, sim tertahan — setia dengan game (tidak ada cicilan, misi tidak
+    pernah gagal, deadline hanya diperpanjang game_state.gd:4489).
+    Misi "menunggu" tidak dibayar di sim (game mengaktifkannya 2 hari
+    setelah disiapkan, JEDA_AGUS — sim tidak memodelkan tunggu itu).
+
+    Setelah naik level dengan misi lunas: bab berikutnya disiapkan
+    (``_siapkan_misi_berikutnya``); bila bab yang lunas adalah bab
+    terakhir, cerita tamat dan ``buka_semua_cerita()`` diterapkan
+    (game_state.gd:3193).
     """
     tingkat = int(s.get("tingkat", 0))
     if tingkat >= len(data.tugas):
         return False
     t = data.tugas[tingkat]
     progres = s.get("progres", {}) or {}
-    agus_beres = (str(s.get("misi_status", "")) in ("", "lunas")
-                  or bool(s.get("cerita_tamat")))
-    inti_beres = (
+    # Inti tanpa misi — untuk mendeteksi "misi satu-satunya penghalang".
+    inti_tanpa_misi = (
         int(progres.get("pelanggan", 0)) >= target_inti(data, s, "pelanggan")
         and int(progres.get("barang", 0)) >= target_inti(data, s, "barang")
         and int(progres.get("omzet", 0)) >= target_inti(data, s, "omzet")
-        and agus_beres
     )
+    khusus_beres = int(progres.get("khusus", 0)) >= target_khusus(data, s)
+    syarat_upgrade = t.get("upgrade", []) or []
+    upgrade_ok = (not syarat_upgrade or any(
+        u in (s.get("upgrade", []) or []) for u in syarat_upgrade))
+    # Bayar misi bila ia satu-satunya penghalang dan mampu.
+    if (str(s.get("misi_status", "")) == "aktif"
+            and not bool(s.get("cerita_tamat"))
+            and inti_tanpa_misi and khusus_beres and upgrade_ok):
+        if not _bayar_misi_sim(s, data):
+            return False
+    agus_beres = (str(s.get("misi_status", "")) in ("", "lunas")
+                  or bool(s.get("cerita_tamat")))
+    inti_beres = inti_tanpa_misi and agus_beres
     if inti_beres and int(s.get("hari_inti_beres", 0) or 0) <= 0:
         s["hari_inti_beres"] = int(s.get("hari", 1))
-    khusus_beres = int(progres.get("khusus", 0)) >= target_khusus(data, s)
     if not (inti_beres and khusus_beres):
         return False
-    syarat_upgrade = t.get("upgrade", []) or []
-    if syarat_upgrade and not any(u in (s.get("upgrade", []) or [])
-                                  for u in syarat_upgrade):
+    if not upgrade_ok:
         return False
     # Naik level.
     hadiah = int(t.get("hadiah", 0))
     s["uang"] = int(s.get("uang", 0)) + hadiah
     s["_hadiah_hari"] = int(s.get("_hadiah_hari", 0)) + hadiah
     buka = list(t.get("buka", []) or [])
+    bab_lunas = None
     if str(s.get("misi_status", "")) == "lunas" and not s.get("cerita_tamat"):
         bab = int(s.get("bab", 0))
         daftar_bab = (data.cerita.get("bab", []) or [])
         if 0 <= bab < len(daftar_bab):
+            bab_lunas = bab
             buka += list(daftar_bab[bab].get("buka", []) or [])
     terbuka = s.setdefault("barang_terbuka", [])
     for item_id in buka:
@@ -866,8 +1124,14 @@ def _cek_tugas(s: dict, data: GameData) -> bool:
     s["beruntun_sekarang"] = 0
     s["hari_level_mulai"] = int(s.get("hari", 1))
     s["hari_inti_beres"] = 0
-    if int(s.get("tingkat", 0)) >= len(data.tugas):
+    # Cerita tamat: bab yang lunas adalah bab terakhir (game_state.gd:3190).
+    daftar_bab = (data.cerita.get("bab", []) or [])
+    if (bab_lunas is not None and daftar_bab
+            and bab_lunas >= len(daftar_bab) - 1):
         s["cerita_tamat"] = True
+        s["barang_terbuka"] = buka_semua_cerita(s, data)
+    elif not s.get("cerita_tamat"):
+        _siapkan_misi_berikutnya(s, data)
     return True
 
 
@@ -1056,6 +1320,22 @@ def _tutup_hari(s: dict, data: GameData, hari_ini: dict) -> None:
             s["tunggakan_sewa"] = 0
             s["minggu_tunggak"] = 0
     hari_ini["sewa"] = sewa_dibayar
+    # hari_minus / bangkrut / diusir (tutup_hari, game_state.gd:6715-6745
+    # + _bayar_sewa :6472). Dicek SETELAH semua potongan hari ini (biaya
+    # + sewa) — yang dinilai adalah uang di akhir hari. lindungi_hari_minus
+    # hanya True saat rangkaian sakit "tertabrak" (game_state.gd:180);
+    # sim tidak memodelkan sakit, jadi field ini hanya bisa True bila
+    # save-nya memang menyalakannya.
+    if int(s.get("uang", 0)) < 0 and not s.get("lindungi_hari_minus"):
+        s["hari_minus"] = int(s.get("hari_minus", 0) or 0) + 1
+    else:
+        s["hari_minus"] = 0
+    if int(s.get("minggu_tunggak", 0) or 0) >= MINGGU_DIUSIR:
+        s["diusir"] = True
+    mode = str(s.get("mode", "casual"))
+    s["bangkrut"] = (int(s.get("hari_minus", 0) or 0)
+                     >= BATAS_HARI_MINUS.get(mode, 3)
+                     or bool(s.get("diusir")))
     # Riwayat harian (catat_riwayat_hari, game_state.gd:4714).
     bersih = hari_ini["laba"] - biaya
     riwayat = s.setdefault("riwayat", [])
@@ -1223,13 +1503,16 @@ def simulate(slot: dict, data: GameData, jumlah_hari: int,
 
     ``seed`` None -> acak (SystemRandom). Seed sama -> hasil identik.
     Slot asli TIDAK diubah; yang dikembalikan adalah salinan hasil sim.
+    Hasil memuat ``hari_minus``/``bangkrut`` (cermin tutup_hari) dan
+    ``bayar_misi`` (total Rp misi cerita yang dibayar sim) — sim yang
+    bangkrut tetap mengembalikan hasil apa adanya.
     """
     if jumlah_hari < 1:
         raise SimError("jumlah hari minimal 1")
     if jumlah_hari > 30:
         raise SimError("maksimal 30 hari per simulasi")
     rng = random.Random(seed) if seed is not None else random.Random()
-    s = _normalisasi_slot(slot)
+    s = _normalisasi_slot(slot, data)
     # Terima kiriman stok yang menunggu (kurir mengantar saat game "dibuka").
     # Dalam game, kiriman masuk ke stok setelah ``durasi_kirim`` berjalan;
     # simulasi tidak membuka game nyata, jadi kiriman harus diantar di sini
@@ -1252,6 +1535,8 @@ def simulate(slot: dict, data: GameData, jumlah_hari: int,
         if s.get("diusir"):
             break
     uang_akhir = int(s.get("uang", 0))
+    # Tangkap total bayar misi sim SEBELUM kunci internal dibersihkan.
+    bayar_misi_total = int(s.get("_bayar_misi", 0) or 0)
     # Bersihkan kunci internal sim (awalan "_") sebelum slot dipakai game.
     for kunci in [k for k in s if k.startswith("_")]:
         del s[kunci]
@@ -1281,4 +1566,12 @@ def simulate(slot: dict, data: GameData, jumlah_hari: int,
         "minggu_tunggak": int(s.get("minggu_tunggak", 0) or 0),
         "tunggakan_sewa": int(s.get("tunggakan_sewa", 0) or 0),
         "diusir": bool(s.get("diusir")),
+        # hari_minus/bangkrut (tutup_hari, game_state.gd:6715-6745): sim
+        # yang bangkrut tetap mengembalikan hasil apa adanya. Di siklus
+        # otomatis nilai ini tetap 0 karena jaga_saldo memperbaiki uang
+        # minus sebelum sim (lihat auto.jalankan_siklus).
+        "hari_minus": int(s.get("hari_minus", 0) or 0),
+        "bangkrut": bool(s.get("bangkrut")),
+        # Total misi cerita yang dibayar sim selama simulasi (Rp).
+        "bayar_misi": bayar_misi_total,
     }

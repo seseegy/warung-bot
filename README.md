@@ -43,6 +43,11 @@ lalu game di HP menampilkan hasilnya. Rancangan lengkap:
 - `/harga_terbaik` — harga per barang yang memaksimalkan laba harian
   (brute force per langkah harga game, 1 hari × 2 seed; tidak pernah di
   bawah lantai harga) + tombol [Terapkan Semua Harga]
+- `/harga_pasar` — terapkan harga mengikuti harga pasar minggu ini secara
+  manual (memakai `auto_harga_pasar` yang sama dengan siklus otomatis;
+  butuh tier Standar; agen aktif mulai Level 2). Pratinjau lama → baru
+  tanpa angka laba, lalu konfirmasi sebelum upload. Notifikasi harga
+  pasar Senin juga punya tombol [Terapkan harga pasar].
 - `/stok` — stok menipis + rekomendasi beli (biaya, batas rak 100/barang,
   durasi + ongkir kurir reguler). Hanya rekomendasi — belum membeli.
 - `/jadwal` — atur jam laporan harian (WIB, per chat, tersimpan di SQLite;
@@ -60,6 +65,29 @@ Semua hasil simulasi diberi label jelas: **"Proyeksi simulasi, bukan
 hasil main sungguhan — RNG, event acak, dan pilihan cerita tidak
 disimulasikan."**
 
+Perbaikan sim 25 Nov 2026 (semua diturunkan dari `game_state.gd`):
+- **Buka barang saat cerita tamat** — sim kini menerapkan
+  `_semua_barang_cerita()` (`:8002-8021`): semua barang terbuka kecuali
+  item event/titipan yang belum terbuka dan item upgrade-buka.
+- **Perbaikan load `barang_terbuka`** — sim memperbaiki daftar barang
+  seperti game saat load (`:3883-3896`): terbuka_awal + bab yang sudah
+  lunas + tugas level + upgrade yang dimiliki + barang agen (event
+  "tolak") + kurma/sirup bila hari >= 55. Item event "tolong" sengaja
+  TIDAK ditambahkan (game hanya membukanya saat event diselesaikan).
+  Akibatnya slot dengan cerita tertinggal dari level (mis. bab=1,
+  tingkat=10) tetap TIDAK membuka kopi_susu/danda — itu perilaku game,
+  bukan bug.
+- **Bayar misi di sim** — bila misi "aktif" satu-satunya penghalang naik
+  level dan mampu sekali lunas dengan cadangan Rp50.000, sim membayarnya
+  (cermin `kirim_uang()`, `:4384`); bila tidak mampu, sim tertahan.
+  Misi bab berikutnya disiapkan (bab yang levelnya tertinggal dilewati,
+  seperti `_siapkan_misi_level()`, `:4469`).
+- **`hari_minus`/`bangkrut` di sim** — cermin `tutup_hari()` (`:6715-6745`):
+  3 hari minus berturut-turut = bangkrut (casual), 1 hari (hard), atau
+  diusir (sewa menunggak 3 minggu). Hasil sim yang bangkrut tetap
+  dikembalikan apa adanya; di siklus otomatis nilainya tetap 0 karena
+  Penjaga Saldo.
+
 ## Fitur Fase 3 — Kerja 24/7 (tiga tier)
 
 Tier disimpan per chat (default Pemula) dan **ditegakkan di kode**, bukan
@@ -72,6 +100,13 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   auto-beli stok saat menipis (biaya = harga_modal × jumlah, masuk
   kiriman — bukan instan), harga ikut harga pasar Senin (dari
   `harga_pasaran` DI SAVE, tidak ditebak), auto-isi progres tugas.
+  Cadangan sewa saat restock (revisi 25 Nov 2026): 0–3 hari sebelum
+  jatuh tempo (termasuk hari sewa) cadangan = tagihan + Rp50.000 supaya
+  cicil/bayar sewa tetap bisa jalan; 4–6 hari sebelumnya cadangan hanya
+  Rp50.000 supaya restock tidak macet. Sebelumnya tagihan penuh
+  dicadangkan SETIAP hari (kondisi "≤ 7 hari" selalu benar karena
+  selisih jatuh tempo selalu 1–7) sehingga toko bisa mati kehabisan
+  stok saat uang menipis.
 - **Profesional** — semua Standar + harga dinamis per barang (brute force,
   hanya yang labanya lebih besar), terbaik dari 3 simulasi, auto-bayar
   sewa/zakat/cicilan motor, lacak posisi peringkat, **Mode Target Level**
@@ -83,11 +118,15 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   + semua aksi otomatis dari log audit, `/bandingkan` — bandingkan 4
   strategi harga dalam simulasi 1 hari (butuh tier Profesional).
 - Siklus harian jalan default **07.00 WIB** (job APScheduler
-  `otomatis:<chat_id>`, dimuat ulang saat bot start). Urutan tiap siklus:
-  ambil state terbaru → pengingat login → harga → simulasi (cek batas
-  harian, default Rp1.000.000) → auto-beli → isi tugas → auto-bayar →
-  **satu upload** → laporan ke chat. Bila versi cloud berubah sejak
-  siklus mulai, siklus dibatalkan (tidak menimpa). Bila bentrok atau sesi
+  `otomatis:<chat_id>`, dimuat ulang saat bot start). Urutan tiap siklus
+  (Standar+): ambil state terbaru → pengingat login → Penjaga Saldo →
+  **bayar misi cerita** (sekali lunas + sisa uang >= Rp50.000; tanpa ini
+  siklus tidak pernah naik level bila misi belum lunas di game asli) →
+  harga → auto-beli stok → simulasi (cek batas harian, default
+  Rp1.000.000) → isi tugas → naik level bila syarat terpenuhi →
+  auto-bayar (Profesional) → Penjaga Saldo → **satu upload** → laporan
+  ke chat. Bila versi cloud berubah sejak siklus mulai, siklus
+  dibatalkan (tidak menimpa). Bila bentrok atau sesi
   habis, otomatisasi **dimatikan** dan pengguna diberi tahu — tidak
   mencoba lagi diam-diam.
 - **Batas harian** (bukan aturan game — pilihan bot, RANCANGAN §14 tidak
@@ -116,10 +155,12 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
 - **Mode Target Level (Fase 3+, Profesional)** — di panel `/otomatis`:
   pilih level tujuan (2-10) lewat tombol → konfirmasi → bot jalan
   terus tiap **5 menit**, 1 hari game per siklus, sampai level itu
-  tercapai. Tiap siklus: bayar misi cerita Agus bila uang cukup
-  (misi harus lunas sebelum naik level) → beli upgrade syarat level
-  bila uang cukup (yang termurah, sisa uang dijaga >= Rp50.000) →
-  siklus harian biasa (simulasi + restock + isi tugas + auto-bayar).
+  tercapai. Tiap siklus: bayar misi cerita Agus bila uang cukup sekali
+  lunas dan sisa uang >= Rp50.000 (cadangan ditambahkan 25 Nov 2026 —
+  sebelumnya bayar_misi tidak punya cadangan dan bisa menghabiskan uang
+  sampai Rp0) → beli upgrade syarat level bila uang cukup (yang
+  termurah, sisa uang dijaga >= Rp50.000) → siklus harian biasa
+  (simulasi + restock + isi tugas + auto-bayar).
   Kabar hanya saat naik level atau mode berhenti. Berhenti otomatis:
   target tercapai, diusir, uang MINUS (jaring pengaman — Penjaga Saldo
   seharusnya mencegahnya; pelajaran insiden 24 Nov 2026), uang habis +
@@ -136,9 +177,9 @@ cuma di UI — aksi di atas tier pengguna ditolak (`TierError`).
   papan) → bot jalan terus tiap **5 menit**, 1 hari game per siklus,
   sampai total pembeli mencapai batas peringkat target. Tiap siklus:
   baca papan live (batas target segar — bisa naik bila pemain lain
-  menyalip) → bayar misi cerita Agus bila uang cukup → beli upgrade
-  syarat level bila uang cukup (yang termurah, sisa uang dijaga >=
-  Rp50.000) → siklus harian biasa. Kabar hanya saat target tercapai
+  menyalip) → bayar misi cerita Agus bila uang cukup sekali lunas dan
+  sisa uang >= Rp50.000 → beli upgrade syarat level bila uang cukup
+  (yang termurah, sisa uang dijaga >= Rp50.000) → siklus harian biasa. Kabar hanya saat target tercapai
   ("MASUK 100 BESAR!") atau mode berhenti. Berhenti otomatis: target
   tercapai, **uang MINUS** (jaring pengaman — Penjaga Saldo seharusnya
   mencegahnya; pelajaran insiden 24 Nov 2026: sim memotong biaya
@@ -342,8 +383,11 @@ bot bila `MINIAPP_URL` diisi.
 (live-run 24 Nov 2026) + 4 tes perbaikan jam (24 Nov 2026) + 23 tes Mode
 Target Level + 1 tes regresi routing tombol target (24 Nov 2026)
 + 23 tes Mode Kejar Papan (24 Nov 2026) + 19 tes Penjaga Saldo
-(24 Nov 2026)
-= **475 tes**: Fase 1 (70) + Fase 2 (73) +
+(24 Nov 2026) + 6 tes /cuan (25 Nov 2026) + 10 tes /harga_pasar
+(25 Nov 2026) + 21 tes perbaikan sim: cerita tamat / load /
+bayar misi / bangkrut (25 Nov 2026) + 2 tes cadangan bayar_misi
+(25 Nov 2026) + 8 tes bayar misi siklus & cadangan sewa (25 Nov 2026)
+= **522 tes**: Fase 1 (70) + Fase 2 (73) +
 `test_tiers.py` (tier gating + Store Fase 3 + audit + hapus total),
 `test_auto.py` (login, auto-beli, auto-harga, auto-bayar, batas harian,
 siklus per tier), `test_papan.py` (parse peringkat + `fetch_papan` mock),

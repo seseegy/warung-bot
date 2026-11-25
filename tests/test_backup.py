@@ -6,6 +6,8 @@ Tidak ada panggilan live.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import pytest
 
 from bot.core import backup as backup_mod
@@ -13,14 +15,21 @@ from bot.core import save as save_mod
 
 
 def test_arsipkan_satu_per_hari(store, sample_p_data):
+    # Tanggal dinamis (WIB): param `tanggal` arsipkan_harian HANYA untuk
+    # dedup, sedangkan tanggal tampilan berasal dari created_at nyata —
+    # jadi ekspektasi harus memakai hari ini / besok, bukan tanggal
+    # kalender hardcode.
+    hari_ini = backup_mod.tanggal_hari_ini()
+    besok = backup_mod.tanggal_hari_ini(
+        datetime.now(backup_mod.WIB) + timedelta(days=1))
     r1 = backup_mod.arsipkan_harian(store, 123, 8, sample_p_data,
-                                    tanggal="2026-11-24")
+                                    tanggal=hari_ini)
     assert r1["disimpan"] is True
     r2 = backup_mod.arsipkan_harian(store, 123, 9, sample_p_data,
-                                    tanggal="2026-11-24")
+                                    tanggal=hari_ini)
     assert r2["disimpan"] is False  # hari yang sama: tidak menimpa
     r3 = backup_mod.arsipkan_harian(store, 123, 9, sample_p_data,
-                                    tanggal="2026-11-25")
+                                    tanggal=besok)
     assert r3["disimpan"] is True
     assert len(backup_mod.daftar_arsip(store, 123)) == 2
 

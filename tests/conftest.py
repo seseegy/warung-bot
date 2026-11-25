@@ -51,7 +51,13 @@ def make_rich_slot(**overrides):
                         "teh_botol", "minyak_goreng", "telur", "kopi_susu"],
         stok={"beras": 20, "gula": 20, "mi_goreng": 20, "sachet": 20,
               "teh_botol": 20, "minyak_goreng": 10, "telur": 10,
-              "kopi_susu": 10},
+              "kopi_susu": 10,
+              # Barang awal lain (terbuka_awal cerita.json) — save asli
+              # menyetoknya; barang_terbuka di atas sengaja dibiarkan 8
+              # item supaya perbaikan load sim (perbaiki_barang_terbuka)
+              # yang menambahkannya tetap teruji, bukan no-op.
+              "mi_rebus": 20, "biskuit": 20, "air_mineral": 20,
+              "ciki": 20, "permen": 20},
         harga_jual_khusus={},
         harga_pasaran={},
         agen_kenalan=[],

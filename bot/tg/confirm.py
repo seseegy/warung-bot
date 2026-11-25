@@ -158,6 +158,37 @@ def build_pending_harga(state: dict, harga_baru: dict,
     return pending, "\n".join(baris)
 
 
+def build_pending_harga_pasar(state: dict, harga_baru: dict,
+                              perubahan: list) -> tuple[dict, str]:
+    """Pending terapkan harga pasar + teks konfirmasi.
+
+    Bentuk pending SAMA dengan ``build_pending_harga`` (kind "harga",
+    jadi ``execute_upload`` memakainya tanpa cabang baru) — bedanya
+    penanda ``"sumber": "pasar"`` (dipakai execute_upload untuk memilih
+    kata "harga pasar" di pesan hasil) dan teks konfirmasi yang menyebut
+    "harga pasar" tanpa angka laba: harga pasar tidak menjanjikan laba.
+    """
+    pending = {
+        "kind": "harga",
+        "sumber": "pasar",
+        "id_papan": state["ringkasan"]["id_papan"],
+        "p_data": None,
+        "versi_dasar": int(state["versi"]),
+        "harga_baru": {k: int(v) for k, v in harga_baru.items()},
+    }
+    baris = ["Terapkan harga pasar ke simpanan?"]
+    for entri in perubahan:
+        if entri["id"] in harga_baru:
+            baris.append(
+                f"{entri['nama']}: {format_rupiah(entri['lama'])} → "
+                f"{format_rupiah(entri['baru'])}")
+    baris.append(
+        "Harga mengikuti harga pasar minggu ini (dari agen Pak Misran). "
+        "Harga pasar bukan jaminan laba.")
+    baris.append("Pastikan game sedang tertutup.")
+    return pending, "\n".join(baris)
+
+
 def build_pending_cepat(state: dict, slot_akhir: dict,
                         ringkasan_teks: str) -> tuple[dict, str]:
     """Pending aksi cepat Fase 5 (/jual, /beli, /ngopi, /tutup).
@@ -324,15 +355,19 @@ async def execute_upload(context, chat_id: int, pending: dict) -> tuple[str, str
                 "Simpanan di cloud berubah sejak harga dihitung "
                 f"(dari v{pending.get('versi_dasar')}, "
                 f"cloud sekarang v{state['versi']}). "
-                "Hitung ulang harga terbaik supaya tidak ada progres yang tertimpa.",
+                + ("Hitung ulang harga pasar supaya tidak ada progres yang tertimpa."
+                   if pending.get("sumber") == "pasar"
+                   else "Hitung ulang harga terbaik supaya tidak ada progres yang tertimpa."),
                 "gagal",
             )
         khusus = dict(slot.get("harga_jual_khusus", {}) or {})
         khusus.update({k: int(v) for k, v in pending["harga_baru"].items()})
         slot["harga_jual_khusus"] = khusus
         hasil_teks = (
-            "Harga terbaik diterapkan dan diunggah "
-            "(simpanan online v{versi}). Buka game → pilih simpanan cloud."
+            ("Harga pasar diterapkan dan diunggah "
+             if pending.get("sumber") == "pasar"
+             else "Harga terbaik diterapkan dan diunggah ")
+            + "(simpanan online v{versi}). Buka game → pilih simpanan cloud."
         )
     elif pending["kind"] == "cepat":
         # Aksi cepat Fase 5: sama seperti simulasi — tolak bila cloud

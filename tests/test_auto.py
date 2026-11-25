@@ -96,7 +96,10 @@ def test_auto_beli_stok_membeli_saat_menipis(rich_slot, game_data):
 def test_auto_beli_tidak_beli_bila_uang_tidak_cukup(rich_slot, game_data):
     slot = copy.deepcopy(rich_slot)
     slot["stok"]["beras"] = 2
-    slot["uang"] = 60000  # di bawah cadangan (50rb + sewa 100rb)
+    slot["uang"] = 60000  # beli beras (18 x modal ~234rb) jauh di bawah
+    # cadangan Rp50.000 — hari=1 (6 hari sebelum sewa) cadangan hanya
+    # Rp50.000, bukan tagihan sewa; tetap tidak terbeli karena biayanya
+    # sendiri sudah melebihi uang yang ada.
     slot_baru, aksi = auto_mod.auto_beli_stok(slot, game_data)
     assert not any(a.get("ok") for a in aksi if a["aksi"] == "beli_stok")
     assert any("uang tidak cukup" in a.get("alasan", "") for a in aksi)
@@ -345,7 +348,13 @@ def test_siklus_tier_3_harga_dinamis_dan_bayar(rich_slot, game_data, tugas_data)
                                      tier=3, batas_harian=1_000_000)
     aksi = [a["aksi"] for a in hasil["aksi"]]
     assert "harga_pasar" in aksi  # mi_goreng 120% pasti berubah
-    assert "bayar_sewa" in aksi
+    # Sewa hari ini TERBAYAR — jalurnya ada dua dan bergantung pada sim
+    # acak (seed=None): bila sim diterima, hari maju ke 8 dan sewa dibayar
+    # DI DALAM sim (tutup_hari); bila sim ditolak batas harian, hari
+    # tetap 7 dan langkah 5 membayar lewat aksi "bayar_sewa". Dulu tes
+    # ini mengasersi aksi "bayar_sewa" sehingga flaky (gagal bila sim
+    # diterima). Yang deterministik adalah sewa_selesai_hari == 7.
+    assert hasil["slot"].get("sewa_selesai_hari") == 7
     assert hasil["slot"]["uang"] >= 0
 
 
@@ -377,3 +386,136 @@ def test_siklus_stok_nol_semua_tidak_crash(rich_slot, game_data, tugas_data):
     # Auto-beli tetap jalan (stok 0 < 5) bila uang cukup.
     assert any(a["aksi"] == "beli_stok" and a.get("ok")
                for a in hasil["aksi"])
+
+
+# -- perbaikan 25 Nov 2026: bayar misi di siklus harian + cadangan sewa ------
+
+def _slot_misi_aktif(rich_slot, uang=500000, target=150000):
+    slot = copy.deepcopy(rich_slot)
+    slot["misi_status"] = "aktif"
+    slot["target_bab"] = target
+    slot["kiriman_bab"] = 0
+    slot["uang"] = uang
+    return slot
+
+
+def test_siklus_bayar_misi_standar(rich_slot, game_data, tugas_data):
+    """Tugas 3b: siklus harian Standar membayar misi (sekali lunas +
+    cadangan Rp50.000) sebelum harga — tanpa ini siklus tidak pernah
+    naik level bila misi belum lunas di game asli. Bukti bayar adalah
+    aksi 'bayar_misi'; status akhir misi adalah 'aktif' karena siklus
+    ini sekaligus NAIK LEVEL (auto_isi_tugas + 4b) dan misi bab
+    berikutnya langsung disiapkan."""
+    slot = _slot_misi_aktif(rich_slot)
+    hasil = auto_mod.jalankan_siklus(slot, game_data, tugas_data,
+                                     tier=2, batas_harian=1_000_000)
+    bayar = [a for a in hasil["aksi"] if a["aksi"] == "bayar_misi"]
+    assert len(bayar) == 1
+    assert bayar[0]["jumlah"] == 150000
+    assert hasil["slot"]["tingkat"] == 1  # naik level berkat misi lunas
+    assert hasil["slot"]["bab"] == 1
+    assert hasil["slot"]["misi_status"] == "aktif"  # misi bab 1
+    assert hasil["slot"]["target_bab"] == 350000
+
+
+def test_siklus_tidak_bayar_misi_pemula(rich_slot, game_data, tugas_data):
+    """Tier Pemula tidak menjalankan langkah 0b (tidak ada sim/restock)."""
+    slot = _slot_misi_aktif(rich_slot)
+    hasil = auto_mod.jalankan_siklus(slot, game_data, tugas_data,
+                                     tier=1, batas_harian=1_000_000)
+    assert not any(a["aksi"] == "bayar_misi" for a in hasil["aksi"])
+    assert hasil["slot"]["misi_status"] == "aktif"
+
+
+def test_siklus_tidak_bayar_misi_bila_sisa_di_bawah_cadangan(
+        rich_slot, game_data, tugas_data):
+    """Langkah 0b menolak bila sisa < Rp50.000. batas_harian negatif
+    dipakai untuk MEMAKSA penolakan sim secara deterministik supaya
+    pembayaran misi DI DALAM sim (langkah 3, dari hasil jualan hari
+    itu) ikut dibuang — yang diuji di sini hanya langkah 0b."""
+    slot = _slot_misi_aktif(rich_slot, uang=180000)
+    hasil = auto_mod.jalankan_siklus(slot, game_data, tugas_data,
+                                     tier=2, batas_harian=-1_000_000_000)
+    assert hasil["batas_terlampaui"] is True
+    assert not any(a["aksi"] == "bayar_misi" for a in hasil["aksi"])
+    assert hasil["slot"]["misi_status"] == "aktif"
+    assert hasil["slot"]["uang"] >= 0
+
+
+def test_siklus_bayar_misi_tetap_jalan_walau_sim_ditolak(
+        rich_slot, game_data, tugas_data):
+    """Pembayaran misi langkah 0b mengedit slot langsung (bukan bagian
+    sim), jadi tetap berlaku walau simulasi ditolak batas harian —
+    dibuktikan aksi 'bayar_misi' yang ada meski sim dibuang; siklus
+    ini sekaligus naik level sehingga misi bab berikutnya aktif.
+    batas_harian negatif dipakai untuk MEMAKSA penolakan sim secara
+    deterministik (cek_batas_harian: selisih > batas; batas 0 tidak
+    cukup karena 0b sudah membelanjakan Rp150rb sehingga sim harus
+    untung >Rp150rb sehari untuk ditolak)."""
+    slot = _slot_misi_aktif(rich_slot)
+    hasil = auto_mod.jalankan_siklus(slot, game_data, tugas_data,
+                                     tier=2, batas_harian=-1_000_000_000)
+    assert hasil["batas_terlampaui"] is True
+    assert hasil["sim"] is None
+    bayar = [a for a in hasil["aksi"] if a["aksi"] == "bayar_misi"]
+    assert len(bayar) == 1 and bayar[0]["jumlah"] == 150000
+    assert hasil["slot"]["tingkat"] == 1
+    assert hasil["slot"]["bab"] == 1
+
+
+# -- Tugas 5: cadangan sewa auto_beli_stok -----------------------------------
+#
+# Sewa Lv6 (tingkat=5) = Rp300.000/minggu (cerita.json). Hari sewa = hari
+# kelipatan 7; hari=1 -> jatuh tempo 6 hari lagi (di luar jendela cicil
+# 3 hari), hari=5 -> 2 hari lagi (di dalam jendela), hari=7 -> hari sewa.
+
+def _slot_lv6(rich_slot, hari, uang):
+    slot = copy.deepcopy(rich_slot)
+    slot["tingkat"] = 5
+    slot["hari"] = hari
+    slot["uang"] = uang
+    slot["stok"] = {}  # rak kosong semua
+    slot["kiriman_stok"] = {}
+    slot["tas_grosir"] = {}
+    return slot
+
+
+def test_auto_beli_restock_saat_sewa_6_hari_lagi(rich_slot, game_data):
+    """Regresi spiral Lv6: uang Rp150.000 (< tagihan sewa Rp300.000) +
+    rak kosong + sewa 6 hari lagi -> bot TETAP restock (cadangan hanya
+    Rp50.000 di luar jendela cicil), bukan diam sampai mati. Kebijakan
+    lama mencadangkan tagihan penuh SETIAP hari dan memblokir semua."""
+    slot = _slot_lv6(rich_slot, hari=1, uang=150000)
+    assert auto_mod.tagihan_sewa(slot, game_data.cerita) == 300000
+    slot_baru, aksi = auto_mod.auto_beli_stok(slot, game_data)
+    dibeli = [a for a in aksi if a["aksi"] == "beli_stok" and a.get("ok")]
+    assert dibeli, "harus ada barang yang dibeli"
+    assert slot_baru["uang"] >= 50000  # lantai cadangan tetap berlaku
+    assert sum(slot_baru["stok"].values()) > 0
+
+
+def test_auto_beli_cadangan_sewa_di_jendela_cicil(rich_slot, game_data):
+    """2 hari sebelum jatuh tempo: cadangan = tagihan + Rp50.000, supaya
+    cicil (uang >= tagihan + 50rb) tetap bisa jalan sesudah restock."""
+    slot = _slot_lv6(rich_slot, hari=5, uang=400000)
+    slot_baru, aksi = auto_mod.auto_beli_stok(slot, game_data)
+    assert slot_baru["uang"] >= 350000  # 300000 tagihan + 50000 cadangan
+    assert slot_baru["uang"] <= 400000
+
+
+def test_auto_beli_cadangan_sewa_hari_sewa(rich_slot, game_data):
+    """Hari sewa: cadangan = tagihan + Rp50.000, supaya bayar_sewa penuh
+    tetap bisa jalan sesudah restock."""
+    slot = _slot_lv6(rich_slot, hari=7, uang=400000)
+    slot_baru, aksi = auto_mod.auto_beli_stok(slot, game_data)
+    assert slot_baru["uang"] >= 350000
+
+
+def test_auto_beli_tidak_beli_bila_uang_di_bawah_tagihan_plus_cadangan(
+        rich_slot, game_data):
+    """Di dalam jendela cicil dengan uang < tagihan + Rp50.000, sewa
+    diprioritaskan: tidak ada restock (jendela paling lama 4 hari)."""
+    slot = _slot_lv6(rich_slot, hari=5, uang=200000)
+    slot_baru, aksi = auto_mod.auto_beli_stok(slot, game_data)
+    assert not any(a["aksi"] == "beli_stok" and a.get("ok") for a in aksi)
+    assert slot_baru["uang"] == 200000

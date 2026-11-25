@@ -240,12 +240,13 @@ async def test_cmd_backup_daftar_dan_tombol_pulihkan(
         store, game_data, tugas_data, sample_p_data, akun_json_valid):
     store.save_user(123, akun_json_valid)
     backup_mod.arsipkan_harian(store, 123, 8, sample_p_data,
-                               tanggal="2026-11-24")
+                               tanggal=backup_mod.tanggal_hari_ini())
     ctx = _fake_context(game_data, store, tugas_data)
     message = _fake_message("/backup")
     await cepat_tg.cmd_backup(_fake_update(message), ctx)
     teks = message.reply_text.call_args[0][0]
-    assert "2026-11-24" in teks
+    # Tanggal yang ditampilkan berasal dari created_at nyata (hari ini).
+    assert backup_mod.tanggal_hari_ini() in teks
     markup = message.reply_text.call_args[1]["reply_markup"]
     data_callback = [b.callback_data for r in markup.inline_keyboard
                      for b in r]
@@ -256,7 +257,7 @@ async def test_rollback_langkah1_tidak_membuat_pending(
         store, game_data, tugas_data, sample_p_data, akun_json_valid):
     store.save_user(123, akun_json_valid)
     backup_mod.arsipkan_harian(store, 123, 8, sample_p_data,
-                               tanggal="2026-11-24")
+                               tanggal=backup_mod.tanggal_hari_ini())
     arsip_id = backup_mod.daftar_arsip(store, 123)[0]["id"]
     ctx = _fake_context(game_data, store, tugas_data)
     query = _fake_query()
@@ -266,7 +267,8 @@ async def test_rollback_langkah1_tidak_membuat_pending(
     # Langkah 1: hanya layar tinjau — TIDAK ada pending, TIDAK ada upload.
     assert PENDING_KEY not in ctx.user_data
     teks = query.edit_message_text.call_args[0][0]
-    assert "Pulihkan arsip 2026-11-24" in teks
+    # Tanggal arsip berasal dari created_at nyata (hari ini).
+    assert f"Pulihkan arsip {backup_mod.tanggal_hari_ini()}" in teks
     markup = query.edit_message_text.call_args[1]["reply_markup"]
     data_callback = [b.callback_data for r in markup.inline_keyboard
                      for b in r]

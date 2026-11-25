@@ -192,8 +192,12 @@ async def test_status_tanpa_header_ditolak(api_client):
 
 
 async def test_status_hash_salah_ditolak(api_client):
-    r = await api_client.get("/api/status",
-                             headers=_h(buat_init_data()[:-1] + "0"))
+    init = buat_init_data()
+    # Rusak karakter terakhir hash dengan nilai yang PASTI berbeda:
+    # mengganti dengan "0" adalah no-op bila hash kebetulan berakhir "0"
+    # (peluang 1/16) sehingga tes jadi flaky — dulu pernah lolos palsu.
+    rusak = init[:-1] + ("1" if init[-1] != "1" else "2")
+    r = await api_client.get("/api/status", headers=_h(rusak))
     assert r.status_code == 401
     assert r.json()["code"] == "hash_salah"
 

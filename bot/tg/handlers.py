@@ -59,6 +59,7 @@ TEKS_BANTUAN = (
     "/upload_paksa — timpa cloud setelah bentrok\n"
     "/simulasi — proyeksi 1/3/7 hari dari simpanan terbaru\n"
     "/harga_terbaik — harga per barang yang memaksimalkan laba\n"
+    "/harga_pasar — terapkan harga mengikuti harga pasar minggu ini\n"
     "/stok — stok menipis + rekomendasi beli\n"
     "/jadwal — atur jam laporan harian\n"
     "/kapan_naik — perkiraan hari sampai naik level\n"

@@ -46,6 +46,25 @@ def test_bayar_misi_tidak_bayar_bila_kurang(game_data):
     assert baru["misi_status"] == "aktif"
 
 
+def test_bayar_misi_tidak_bayar_bila_sisa_di_bawah_cadangan(game_data):
+    """Baru (25 Nov 2026): bayar misi menjaga cadangan Rp50.000 seperti
+    beli_upgrade_syarat — dulu tidak ada cadangan, uang bisa habis Rp0."""
+    slot = _slot_misi(uang=180000)  # sisa 30000 < 50000 -> jangan bayar
+    baru, aksi = target_mod.bayar_misi(slot, game_data)
+    assert aksi is None
+    assert baru["uang"] == 180000
+    assert baru["misi_status"] == "aktif"
+
+
+def test_bayar_misi_bayar_bila_sisa_pas_cadangan(game_data):
+    slot = _slot_misi(uang=200000)  # sisa tepat 50000 -> bayar
+    baru, aksi = target_mod.bayar_misi(slot, game_data)
+    assert aksi == {"aksi": "bayar_misi", "ok": True, "jumlah": 150000}
+    assert baru["uang"] == 50000
+    assert baru["misi_status"] == "lunas"
+    assert baru["kiriman_bab"] == 150000
+
+
 def test_bayar_misi_diam_bila_tidak_aktif(game_data, rich_slot):
     _, aksi = target_mod.bayar_misi(rich_slot, game_data)
     assert aksi is None

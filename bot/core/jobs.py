@@ -1177,7 +1177,16 @@ async def notifikasi_pasar_senin(app) -> None:
                 "Catatan: harga pasar baru berpengaruh setelah agen aktif "
                 "(Level 2).")
         try:
-            await app.bot.send_message(chat_id=chat_id, text="\n".join(baris))
+            markup = None
+            if sim_mod.agen_aktif(state["slot"]):
+                # Tombol langsung ke pratinjau /harga_pasar (callback
+                # sim:harga_pasar mengambil state segar sendiri).
+                markup = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(
+                        "Terapkan harga pasar",
+                        callback_data="sim:harga_pasar")]])
+            await app.bot.send_message(chat_id=chat_id, text="\n".join(baris),
+                                       reply_markup=markup)
         except Exception:
             log.exception("gagal mengirim notifikasi pasar ke chat %s",
                           chat_id)

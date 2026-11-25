@@ -59,7 +59,7 @@ def kapan_naik(slot: dict, data: GameData, seed: int | None = 12345,
             and not slot.get("cerita_tamat")):
         blocker.append(f"misi cerita belum lunas (misi_status: {slot.get('misi_status')})")
     # Progres sudah memenuhi target saat ini?
-    s0 = sim_mod._normalisasi_slot(slot)
+    s0 = sim_mod._normalisasi_slot(slot, data)
     inti_ok = (
         int((s0.get("progres", {}) or {}).get("pelanggan", 0)) >= sim_mod.target_inti(data, s0, "pelanggan")
         and int((s0.get("progres", {}) or {}).get("barang", 0)) >= sim_mod.target_inti(data, s0, "barang")
@@ -73,7 +73,7 @@ def kapan_naik(slot: dict, data: GameData, seed: int | None = 12345,
         # Tetap simulasikan untuk laju harian, tapi naik tidak akan terjadi.
         pass
     rng = _rng(seed)
-    s = sim_mod._normalisasi_slot(slot)
+    s = sim_mod._normalisasi_slot(slot, data)
     hari_jalan = 0
     for _ in range(maks_hari):
         sebelum = int(s.get("tingkat", 0))
@@ -124,7 +124,7 @@ def roi_upgrade(slot: dict, data: GameData, seed: int | None = 12345,
         harga = int(up.get("harga", 0))
         # biaya_hari bisa null di JSON (= 0).
         biaya_hari = int(up.get("biaya_hari") or 0)
-        slot_uji = sim_mod._normalisasi_slot(slot)
+        slot_uji = sim_mod._normalisasi_slot(slot, data)
         slot_uji["upgrade"] = list(dimiliki) + [uid]
         # Harga TIDAK dipotong dari uang sim: balik modal sudah dihitung
         # sebagai harga / tambahan laba harian. Memotongnya juga akan
@@ -202,7 +202,7 @@ def whatif(slot: dict, data: GameData, harga_baru: dict,
             catatan.append(f"{item_id}: {h} di-snap ke {h_snap} (langkah {langkah})")
         harga_dipakai[item_id] = h_snap
     sekarang = sim_mod.simulate(slot, data, jumlah_hari, seed=seed)
-    slot_uji = sim_mod._normalisasi_slot(slot)
+    slot_uji = sim_mod._normalisasi_slot(slot, data)
     khusus = dict(slot_uji.get("harga_jual_khusus", {}) or {})
     khusus.update(harga_dipakai)
     slot_uji["harga_jual_khusus"] = khusus
@@ -258,7 +258,7 @@ def harga_terbaik(slot: dict, data: GameData, seed: int | None = 12345,
         laba_terbaik = None
         laba_sekarang = None
         for harga in kandidat:
-            slot_uji = sim_mod._normalisasi_slot(slot)
+            slot_uji = sim_mod._normalisasi_slot(slot, data)
             khusus = dict(slot_uji.get("harga_jual_khusus", {}) or {})
             khusus[item_id] = harga
             slot_uji["harga_jual_khusus"] = khusus

@@ -230,6 +230,31 @@ def _tarik_qris_untuk(slot: dict, jumlah: int) -> None:
     slot["uang"] = int(slot.get("uang", 0)) + kurang
 
 
+def bayar_misi(slot: dict, data) -> tuple[dict, dict | None]:
+    """Bayar misi cerita seperti ``kirim_uang()`` (game_state.gd:4384).
+
+    Bila misi aktif dan uang cukup untuk SEKALI LUNAS (tidak bisa dicicil):
+    uang -= kekurangan, kiriman_bab = target, misi jadi "lunas".
+    Syarat tambahan bot: uang sesudah bayar masih >= CADANGAN_UANG_MIN
+    (Rp50.000) — selaras dengan ``beli_upgrade_syarat`` — supaya toko
+    tetap bisa restock sesudah membayar Agus. Sebelum perbaikan ini
+    bayar_misi di target.py tidak punya cadangan (uang bisa habis sampai
+    Rp0). Mengembalikan (slot_baru, aksi|None). Slot awal TIDAK diubah.
+    """
+    s = copy.deepcopy(slot)
+    if str(s.get("misi_status", "")) != "aktif":
+        return s, None
+    kurang = max(int(s.get("target_bab", 0)) - int(s.get("kiriman_bab", 0)), 0)
+    if kurang <= 0:
+        return s, None
+    if int(s.get("uang", 0)) - kurang < CADANGAN_UANG_MIN:
+        return s, None
+    s["uang"] = int(s["uang"]) - kurang
+    s["kiriman_bab"] = int(s.get("target_bab", 0))
+    s["misi_status"] = "lunas"
+    return s, {"aksi": "bayar_misi", "ok": True, "jumlah": kurang}
+
+
 def bayar_sewa(slot: dict, cerita: dict) -> dict:
     """Bayar sewa seperti ``_bayar_sewa()`` (game_state.gd:6448).
 
@@ -429,11 +454,32 @@ def auto_beli_stok(slot: dict, data: GameData) -> tuple[dict, list]:
 
     Untuk tiap barang fisik terbuka yang stok+kiriman+grosir < 5: beli
     sampai 20 (dibatasi sisa muat rak). Uang sesudah beli tidak boleh
-    turun di bawah Rp50.000, dan bila sewa jatuh tempo dalam 7 hari,
-    tagihan sewa ikut dicadangkan. Biaya = harga_modal x jumlah;
-    uang -= biaya; barang LANGSUNG masuk ``stok`` (bukan ``kiriman_stok``)
-    supaya bisa dijual pada simulasi berikutnya tanpa menunggu kurir.
+    turun di bawah cadangan sewa (lihat di bawah); biaya =
+    harga_modal x jumlah; uang -= biaya; barang LANGSUNG masuk ``stok``
+    (bukan ``kiriman_stok``) supaya bisa dijual pada simulasi berikutnya
+    tanpa menunggu kurir.
     Mengembalikan (slot_baru, aksi).
+
+    Cadangan sewa (kebijakan bot, direvisi 25 Nov 2026 — sebelumnya
+    cadangan = tagihan sewa PENUH bila jatuh tempo <= 7 hari; karena
+    ``hari_jatuh_tempo_sewa(hari) - hari`` selalu 1..7, kondisi itu
+    SELALU benar sehingga tagihan penuh (sampai Rp500rb) dicadangkan
+    SETIAP hari dan restock macet total saat uang menipis — spiral mati
+    yang teramati saat estimasi Lv6):
+    - 0..3 hari sebelum jatuh tempo (termasuk hari sewa): cadangan =
+      tagihan + CADANGAN_UANG_MIN (Rp50.000). Ini selaras dengan rencana
+      cicil bot sendiri (langkah 5 jalankan_siklus: cicil bila
+      ``uang >= tagihan + CADANGAN_UANG_MIN``) — sesudah restock, cicil
+      tetap bisa jalan; sesudah cicil lunas, tagihan -> 0 dan cadangan
+      runtuh ke Rp50.000. Pada hari sewa, cadangan yang sama menjamin
+      bayar_sewa penuh tetap bisa jalan.
+    - 4..6 hari sebelum jatuh tempo: cadangan = CADANGAN_UANG_MIN
+      (Rp50.000) saja — penjualan 4-6 hari ke depan mengisi kas sebelum
+      jatuh tempo, jadi menahan tagihan penuh sejak sekarang hanya
+      mematikan toko tanpa alasan.
+    Di dalam jendela 0..3 hari dengan uang < tagihan + Rp50.000, restock
+    memang TIDAK jalan (sewa diprioritaskan); jendela itu paling lama 4
+    hari dan sesudah hari sewa cadangan runtuh lagi ke Rp50.000.
     """
     slot = copy.deepcopy(slot)
     aksi: list[dict] = []
@@ -445,10 +491,18 @@ def auto_beli_stok(slot: dict, data: GameData) -> tuple[dict, list]:
     grosir = slot.get("tas_grosir", {}) or {}
     terbuka = set(slot.get("barang_terbuka", []) or [])
     hari = int(slot.get("hari", 1))
-    # Cadangan sewa bila jatuh tempo dalam 7 hari.
-    cadangan = CADANGAN_UANG_MIN
-    if hari_jatuh_tempo_sewa(hari) - hari <= 7:
-        cadangan = max(cadangan, tagihan_sewa(slot, data.cerita))
+    # Cadangan sewa: selaraskan dengan jendela cicil 3 hari (bukan 7 hari
+    # penuh — lihat docstring). hari_jatuh_tempo_sewa mengembalikan
+    # hari+7 pada hari sewa, jadi hari sewa dihitung 0 hari lagi.
+    if hari_sewa(hari):
+        sisa_hari_sewa = 0
+    else:
+        sisa_hari_sewa = hari_jatuh_tempo_sewa(hari) - hari
+    if sisa_hari_sewa <= 3:
+        cadangan = max(CADANGAN_UANG_MIN,
+                       tagihan_sewa(slot, data.cerita) + CADANGAN_UANG_MIN)
+    else:
+        cadangan = CADANGAN_UANG_MIN
     for item_id in data.urutan_barang:
         item = data.katalog[item_id]
         if item.get("jenis") != "fisik" or item_id not in terbuka:
@@ -617,6 +671,15 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
 
     0. Penjaga Saldo — perbaiki minus yang sudah ada di save SEBELUM
        langkah lain (aksi "jaga_saldo" bila ada top-up).
+    0b. Bayar misi cerita (Standar+) — sekali lunas + cadangan Rp50.000
+       (aksi "bayar_misi" bila dibayar). Tanpa ini siklus harian TIDAK
+       PERNAH bisa naik level bila misi belum lunas di game asli, karena
+       naik level butuh misi lunas dan sim tidak membayar misi sendiri
+       kecuali bila misi satu-satunya penghalang (lihat langkah 3).
+       Urutan sama seperti satu_siklus_target (bayar misi dulu, baru
+       siklus). Pembayaran ini langsung mengedit slot (bukan bagian
+       sim), jadi tetap berlaku walau simulasi langkah 3 ditolak karena
+       batas harian terlampaui — seperti harga/restock.
     1. Harga ikut pasar (Standar+) lalu harga dinamis (Profesional).
     2. Auto-beli stok (Standar+) — SEBELUM simulasi supaya ada barang
        untuk dijual hari ini.
@@ -646,6 +709,15 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         aksi.append({"aksi": "jaga_saldo", "ok": True, "jumlah": tambah,
                      "dari": uang_awal, "ke": int(slot.get("uang", 0))})
 
+    # 0b. Bayar misi cerita (Standar+): sekali lunas + cadangan Rp50.000.
+    # Tanpa ini siklus harian tidak pernah naik level bila misi belum
+    # lunas di game asli (naik level butuh misi lunas; sim hanya membayar
+    # misi bila ia satu-satunya penghalang saat penjualan — langkah 3).
+    if tier >= TIER_STANDAR:
+        slot, bayar = bayar_misi(slot, data)
+        if bayar is not None:
+            aksi.append(bayar)
+
     # 1. Harga.
     if tier >= TIER_STANDAR:
         slot, ubah = auto_harga_pasar(slot, data)
@@ -655,8 +727,9 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
         aksi.extend(ubah)
 
     # 2. Auto-beli stok (SEBELUM simulasi) supaya ada barang untuk dijual
-    # hari ini. Tanpa ini, hari sewa mengunci uang di cadangan -> tidak
-    # bisa beli stok -> pelanggan batal -> rugi terus.
+    # hari ini. Cadangan sewa di auto_beli_stok hanya menahan tagihan
+    # penuh 0..3 hari sebelum jatuh tempo (selaras cicil); 4..6 hari
+    # sebelumnya cadangan hanya Rp50.000 supaya restock tetap jalan.
     if tier >= TIER_STANDAR:
         slot, beli = auto_beli_stok(slot, data)
         aksi.extend(beli)
@@ -702,6 +775,13 @@ def jalankan_siklus(slot_awal: dict, data: GameData, tugas_data: dict,
                 "percobaan": int(hasil_sim["percobaan"]),
             }
             aksi.append({"aksi": "simulasi", "ok": True, **sim_ringkasan})
+            # Misi yang dibayar sim di dalam simulasi (bila misi menjadi
+            # satu-satunya penghalang naik level saat penjualan) — catat
+            # sebagai aksi supaya muncul di laporan/audit seperti
+            # bayar_misi langkah 0b / Target / Kejar.
+            if int(hasil_sim.get("bayar_misi", 0) or 0) > 0:
+                aksi.append({"aksi": "bayar_misi", "ok": True,
+                             "jumlah": int(hasil_sim["bayar_misi"])})
 
     # 4. Auto-isi tugas.
     if tier >= TIER_STANDAR:

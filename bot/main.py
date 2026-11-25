@@ -202,6 +202,7 @@ def build_application() -> Application:
     # Fase 2 — Simulasi & perencana.
     app.add_handler(CommandHandler("simulasi", sim_tg.cmd_simulasi))
     app.add_handler(CommandHandler("harga_terbaik", sim_tg.cmd_harga_terbaik))
+    app.add_handler(CommandHandler("harga_pasar", sim_tg.cmd_harga_pasar))
     app.add_handler(CommandHandler("stok", sim_tg.cmd_stok))
     app.add_handler(CommandHandler("jadwal", sim_tg.cmd_jadwal))
     app.add_handler(CommandHandler("kapan_naik", sim_tg.cmd_kapan_naik))

@@ -37,7 +37,7 @@ def rencana_7_hari(slot: dict, data: GameData, tugas_data: dict,
                    hari: int = HARI_RENCANA) -> dict:
     """Rencana N hari (default 7) dari slot saat ini."""
     hasil = sim_mod.simulate(slot, data, hari, seed=seed)
-    slot_awal = sim_mod._normalisasi_slot(slot)
+    slot_awal = sim_mod._normalisasi_slot(slot, data)
     slot_akhir = hasil["slot_akhir"]
     stok_awal = slot_awal.get("stok", {}) or {}
     stok_akhir = slot_akhir.get("stok", {}) or {}

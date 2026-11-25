@@ -250,3 +250,337 @@ def test_efek_harga_murah_menaikkan_ramai(rich_slot, game_data):
     lo_murah, hi_murah = sim_mod.interval_datang(game_data, slot_murah, 600.0)
     lo_normal, hi_normal = sim_mod.interval_datang(game_data, slot_mahal, 600.0)
     assert (lo_murah, hi_murah) < (lo_normal, hi_normal)
+
+
+# -- perbaikan 25 Nov 2026: cerita tamat / load / misi / bangkrut ------------
+#
+# Grounding: _semua_barang_cerita() (game_state.gd:8002-8021), perbaikan
+# load (:3883-3896 + :8034/:8041/:7782), kirim_uang() (:4384),
+# _siapkan_misi_level() (:4469), tutup_hari() (:6715-6745).
+
+
+def _slot_siap_naik(rich_slot, game_data, tingkat, misi_status="aktif",
+                    target_bab=150000, kiriman_bab=0, uang=500000, bab=0,
+                    upgrade=None):
+    """Slot yang progresnya sudah memenuhi target level ``tingkat``.
+
+    Khusus diset sangat besar supaya jenis khusus apa pun terpenuhi;
+    upgrade syarat level diisi otomatis bila tidak disebut.
+    """
+    slot = copy.deepcopy(rich_slot)
+    t = game_data.tugas[tingkat]
+    slot["tingkat"] = tingkat
+    slot["bab"] = bab
+    slot["misi_status"] = misi_status
+    slot["target_bab"] = target_bab
+    slot["kiriman_bab"] = kiriman_bab
+    slot["uang"] = uang
+    slot["cerita_tamat"] = False
+    slot["progres"] = {"pelanggan": int(t["pelanggan"]),
+                       "barang": int(t["barang"]),
+                       "omzet": int(t["omzet"]), "khusus": 10 ** 9}
+    if upgrade is None:
+        upgrade = list(t.get("upgrade", []) or [])
+    slot["upgrade"] = list(upgrade)
+    return slot
+
+
+# -- Tugas 2: perbaiki_barang_terbuka ----------------------------------------
+
+def test_perbaiki_barang_terbuka_screenshot_bab_tertinggal(rich_slot, game_data):
+    """Kasus screenshot: bab=1, tingkat=10 — cerita tertinggal dari level.
+    Game TIDAK membuka kopi_susu/danda (bab 2+ belum dilewati); ini
+    perilaku game (load :3883-3896), bukan bug."""
+    slot = copy.deepcopy(rich_slot)
+    slot["bab"] = 1
+    slot["tingkat"] = 10
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    hasil = sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    assert "teh_botol" in hasil          # bab 0 sudah lunas
+    assert "kerupuk" in hasil            # tugas Lv2
+    assert "minuman_energi" in hasil     # tugas Lv3
+    assert "kopi_susu" not in hasil      # bab 1 belum lunas
+    assert "danda" not in hasil          # bab 3 belum lunas
+    assert "data_2gb" not in hasil
+    assert "minyak_goreng" not in hasil  # bab 4 belum lunas
+
+
+def test_perbaiki_barang_terbuka_bab9_buka_semua_yang_berhak(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["bab"] = 9
+    slot["tingkat"] = 10
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    hasil = sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    for item_id in ("teh_botol", "kopi_susu", "danda", "data_2gb",
+                    "data_5gb", "data_10gb", "minyak_goreng",
+                    "kerupuk", "minuman_energi"):
+        assert item_id in hasil
+    # Event/titipan tetap terkunci (bukan hak dari bab/level).
+    assert "sayur" not in hasil
+    assert "roti" not in hasil
+
+
+def test_perbaiki_barang_terbuka_event_tolak_buka_agen(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["bab"] = 0
+    slot["tingkat"] = 0
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    slot["cerita_warga"] = {"ucup_sekolah": "tolak"}
+    hasil = sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    assert "buku_tulis" in hasil   # agen Pak Misran (tolak ucup_sekolah)
+    assert "beras" not in hasil    # event lain tidak ditolak -> tidak dibuka
+
+
+def test_perbaiki_barang_terbuka_tidak_tambah_event_tolong(rich_slot, game_data):
+    """Game tidak memperbaiki item event 'tolong' saat load — hanya saat
+    event diselesaikan. Jangan tambahkan."""
+    slot = copy.deepcopy(rich_slot)
+    slot["bab"] = 9
+    slot["tingkat"] = 10
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    slot["cerita_warga"] = {}
+    hasil = sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    for item_id in ("beras", "sayur", "obat", "galon", "lpg"):
+        assert item_id not in hasil
+
+
+def test_perbaiki_barang_terbuka_ramadan(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["bab"] = 0
+    slot["tingkat"] = 0
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    slot["hari"] = 54
+    assert "kurma" not in sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    slot["hari"] = 55  # RAMADAN_MULAI = HARI_LEBARAN(85) - 30
+    hasil = sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    assert "kurma" in hasil and "sirup" in hasil
+
+
+def test_perbaiki_barang_terbuka_cerita_tamat(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["cerita_tamat"] = True
+    slot["tingkat"] = 10
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    hasil = sim_mod.perbaiki_barang_terbuka(slot, game_data)
+    assert "kurma" in hasil and "sirup" in hasil
+    assert "kopi_susu" in hasil and "minyak_goreng" in hasil
+    assert "sayur" not in hasil and "roti" not in hasil and "jamu" not in hasil
+
+
+# -- Tugas 1: buka barang saat cerita tamat ----------------------------------
+
+def test_buka_semua_cerita_bab_tertinggal_buka_cerita_yang_terlewat(
+        rich_slot, game_data):
+    """Fungsi murni: slot bab=1 tingkat=10 yang cerita_tamat — buka semua
+    barang cerita (termasuk dari bab yang terlewat), kecuali event/titipan
+    yang belum terbuka."""
+    slot = copy.deepcopy(rich_slot)
+    slot["bab"] = 1
+    slot["tingkat"] = 10
+    slot["cerita_tamat"] = True
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"])
+    hasil = sim_mod.buka_semua_cerita(slot, game_data)
+    for item_id in ("kopi_susu", "danda", "data_2gb", "minyak_goreng",
+                    "teh_botol", "kurma", "sirup"):
+        assert item_id in hasil
+    for item_id in ("sayur", "obat", "galon", "lpg", "roti", "jamu"):
+        assert item_id not in hasil
+    # Item event/titipan yang SUDAH terbuka dipertahankan.
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"]) + [
+        "galon", "roti"]
+    hasil2 = sim_mod.buka_semua_cerita(slot, game_data)
+    assert "galon" in hasil2 and "roti" in hasil2
+
+
+def test_cek_tugas_cerita_tamat_buka_semua(rich_slot, game_data):
+    """Naik ke Lv10 dengan bab terakhir lunas -> cerita tamat + semua
+    barang cerita terbuka; event/titipan yang belum terbuka tetap kunci."""
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=9, bab=9,
+                           target_bab=100000, uang=500000)
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"]) + [
+        "beras", "galon", "lpg"]  # sudah ditolong warga -> dipertahankan
+    slot["hari"] = 1  # sebelum Ramadan: kurma/sirup hanya lewat tamat
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is True
+    assert int(s["tingkat"]) == 10
+    assert s["cerita_tamat"] is True
+    terbuka = s["barang_terbuka"]
+    for item_id in ("beras", "galon", "lpg", "minyak_goreng", "kopi_susu",
+                    "teh_botol", "danda", "kurma", "sirup"):
+        assert item_id in terbuka
+    for item_id in ("sayur", "obat", "roti", "jamu"):
+        assert item_id not in terbuka
+
+
+def test_simulate_cerita_tamat_dan_bayar_misi(rich_slot, game_data):
+    """End-to-end: sim 1 hari mencapai Lv10 -> tamat, misi terbayar,
+    kurma/sirup terbuka (hari < 55), event yang belum ditolong terkunci."""
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=9, bab=9,
+                           target_bab=100000, uang=500000)
+    slot["barang_terbuka"] = list(game_data.cerita["terbuka_awal"]) + ["beras"]
+    slot["hari"] = 1
+    hasil = simulate(slot, game_data, 1, seed=12345)
+    assert hasil["tingkat_akhir"] == 10
+    assert hasil["slot_akhir"]["cerita_tamat"] is True
+    assert hasil["bayar_misi"] == 100000
+    assert "kurma" in hasil["slot_akhir"]["barang_terbuka"]
+    assert "sayur" not in hasil["slot_akhir"]["barang_terbuka"]
+
+
+# -- Tugas 3a: bayar misi di sim --------------------------------------------
+
+def test_cek_tugas_bayar_misi_bila_satu_satunya_penghalang(rich_slot, game_data):
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=0, bab=0,
+                           target_bab=150000, uang=500000)
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is True
+    assert int(s["tingkat"]) == 1
+    assert int(s["_bayar_misi"]) == 150000
+    # 500000 - 150000 (misi) + 15000 (hadiah Lv1) = 365000.
+    assert int(s["uang"]) == 365000
+    # Misi bab 0 lunas (terbukti dari _bayar_misi + naik level); misi bab
+    # berikutnya langsung disiapkan (bab 1, target 350000, aktif).
+    assert int(s["bab"]) == 1
+    assert s["misi_status"] == "aktif"
+    assert int(s["target_bab"]) == 350000
+
+
+def test_cek_tugas_tidak_bayar_misi_bila_sisa_di_bawah_cadangan(
+        rich_slot, game_data):
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=1, bab=0,
+                           target_bab=150000, uang=180000)
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is False
+    assert int(s["tingkat"]) == 1
+    assert s["misi_status"] == "aktif"
+    assert int(s["uang"]) == 180000  # tidak dibayar: sisa 30000 < 50000
+
+
+def test_cek_tugas_bayar_misi_bila_sisa_pas_cadangan(rich_slot, game_data):
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=1, bab=0,
+                           target_bab=150000, uang=200000)
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is True
+    # 200000 - 150000 (misi) + 50000 (hadiah) = 100000.
+    assert int(s["uang"]) == 100000
+
+
+def test_cek_tugas_tidak_bayar_misi_bila_progres_belum_penuh(
+        rich_slot, game_data):
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=1, bab=0,
+                           target_bab=150000, uang=500000)
+    slot["progres"] = {"pelanggan": 0, "barang": 0, "omzet": 0, "khusus": 0}
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is False
+    assert s["misi_status"] == "aktif"
+    assert int(s["uang"]) == 500000  # tidak dibayar: misi bukan satu-satunya
+    # penghalang (progres belum penuh).
+
+
+def test_cek_tugas_tidak_bayar_misi_menunggu(rich_slot, game_data):
+    """Misi 'menunggu' (Agus belum menghubungi, JEDA_AGUS 2 hari) tidak
+    dibayar sim — game mengaktifkannya belakangan."""
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=1, bab=0,
+                           misi_status="menunggu", target_bab=150000,
+                           uang=500000)
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is False
+    assert s["misi_status"] == "menunggu"
+    assert int(s["uang"]) == 500000
+
+
+def test_cek_tugas_lewati_bab_yang_levelnya_tertinggal(rich_slot, game_data):
+    """_siapkan_misi_level (:4469): bab yang levelnya < level saat itu
+    dilewati — tidak pernah memberi misi lagi."""
+    slot = _slot_siap_naik(rich_slot, game_data, tingkat=5, bab=1,
+                           misi_status="lunas", target_bab=0, uang=500000)
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    assert sim_mod._cek_tugas(s, game_data) is True
+    # Naik ke tingkat 6 (Lv7): bab 2..5 terlewat (level 3..6 < 7),
+    # bab 6 (level 7) langsung aktif.
+    assert int(s["bab"]) == 6
+    assert s["misi_status"] == "aktif"
+    assert int(s["target_bab"]) == 1500000
+
+
+# -- Tugas 4: hari_minus / bangkrut ------------------------------------------
+
+def test_tutup_hari_minus_tambah_dan_bangkrut_casual(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["mode"] = "casual"
+    slot["uang"] = -5000
+    slot["hari"] = 2
+    slot["hari_minus"] = 0
+    slot["bangkrut"] = False
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    sim_mod._tutup_hari(s, game_data, sim_mod._hari_baru())
+    assert int(s["hari_minus"]) == 1
+    assert s["bangkrut"] is False
+    sim_mod._tutup_hari(s, game_data, sim_mod._hari_baru())
+    sim_mod._tutup_hari(s, game_data, sim_mod._hari_baru())
+    assert int(s["hari_minus"]) == 3
+    assert s["bangkrut"] is True  # BATAS_HARI_MINUS casual = 3
+
+
+def test_tutup_hari_minus_bangkrut_hard_sekali(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["mode"] = "hard"
+    slot["uang"] = -5000
+    slot["hari"] = 2
+    slot["hari_minus"] = 0
+    slot["bangkrut"] = False
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    sim_mod._tutup_hari(s, game_data, sim_mod._hari_baru())
+    assert int(s["hari_minus"]) == 1
+    assert s["bangkrut"] is True  # BATAS_HARI_MINUS hard = 1
+
+
+def test_tutup_hari_tidak_minus_reset_hari_minus(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["mode"] = "casual"
+    slot["uang"] = 100000
+    slot["hari"] = 2
+    slot["hari_minus"] = 2
+    slot["bangkrut"] = False
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    sim_mod._tutup_hari(s, game_data, sim_mod._hari_baru())
+    assert int(s["hari_minus"]) == 0
+    assert s["bangkrut"] is False
+
+
+def test_tutup_hari_lindungi_tidak_tambah_hari_minus(rich_slot, game_data):
+    slot = copy.deepcopy(rich_slot)
+    slot["mode"] = "casual"
+    slot["uang"] = -5000
+    slot["hari"] = 2
+    slot["hari_minus"] = 0
+    slot["lindungi_hari_minus"] = True  # rangkaian sakit "tertabrak"
+    s = sim_mod._normalisasi_slot(slot, game_data)
+    sim_mod._tutup_hari(s, game_data, sim_mod._hari_baru())
+    assert int(s["hari_minus"]) == 0
+    assert s["bangkrut"] is False
+
+
+def _slot_tanpa_penjualan():
+    """Slot yang tidak bisa berjualan: rak kosong, tanpa layanan terbuka."""
+    return {"mode": "casual", "hari": 1, "uang": 0, "tingkat": 0,
+            "barang_terbuka": ["mi_goreng"], "stok": {},
+            "misi_status": "", "cerita_tamat": False}
+
+
+def test_simulate_bangkrut_tetap_kembalikan_hasil(game_data):
+    hasil = simulate(_slot_tanpa_penjualan(), game_data, 3, seed=7)
+    assert hasil["bangkrut"] is True
+    assert hasil["hari_minus"] == 3
+    assert hasil["uang_akhir"] < 0
+    assert hasil["slot_akhir"]["bangkrut"] is True
+
+
+def test_simulate_diusir_setelah_3_minggu_tunggak(game_data):
+    """Sewa tak terbayar 3 Minggu berturut-turut -> diusir (game :6472)
+    dan bangkrut; sim berhenti di hari itu."""
+    hasil = simulate(_slot_tanpa_penjualan(), game_data, 30, seed=7)
+    assert hasil["diusir"] is True
+    assert hasil["bangkrut"] is True
+    assert hasil["minggu_tunggak"] >= 3
+    assert hasil["hari_akhir"] <= 22  # diusir pada hari sewa ke-3 (hari 21)

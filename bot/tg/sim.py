@@ -14,12 +14,19 @@ import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from ..core import auto as auto_mod
 from ..core import plan as plan_mod
 from ..core import save as save_mod
 from ..core import sim as sim_mod
+from ..core import tiers as tiers_mod
 from ..core.cloud import CloudError, NoCloudData, SessionExpired
 from . import keyboards as kb
-from .confirm import PENDING_KEY, build_pending_harga, build_pending_simulasi
+from .confirm import (
+    PENDING_KEY,
+    build_pending_harga,
+    build_pending_harga_pasar,
+    build_pending_simulasi,
+)
 from .status import (
     NotLinked,
     fetch_latest_state,
@@ -236,6 +243,13 @@ async def cmd_harga_terbaik(update, context) -> None:
     await _jalankan_harga_terbaik(message, context, edit=False)
 
 
+async def cmd_harga_pasar(update, context) -> None:
+    message = update.message
+    if message is None:
+        return
+    await _jalankan_harga_pasar(message, context, edit=False)
+
+
 async def cmd_stok(update, context) -> None:
     message = update.message
     if message is None:
@@ -411,6 +425,9 @@ async def _callback_sim(query, context, data_str: str) -> None:
     if data_str == "sim:harga":
         await _jalankan_harga_terbaik(query, context, edit=True)
         return
+    if data_str == "sim:harga_pasar":
+        await _jalankan_harga_pasar(query, context, edit=True)
+        return
     if data_str == "sim:stok":
         state, err = await _ambil_state(context, chat_id)
         if err:
@@ -516,6 +533,93 @@ async def _jalankan_harga_terbaik(target, context, edit: bool) -> None:
     baris.append("")
     baris.append(DISCLAIMER)
     pending, teks_konfirmasi = build_pending_harga(state, harga_baru, hasil)
+    context.user_data[PENDING_KEY] = pending
+    teks = "\n".join(baris) + "\n\n" + teks_konfirmasi
+    if edit:
+        await _edit(target, teks, harga_apply_keyboard())
+    else:
+        await target.reply_text(teks, reply_markup=harga_apply_keyboard())
+
+
+async def _jalankan_harga_pasar(target, context, edit: bool) -> None:
+    """Terapkan harga ikut pasaran, manual (pesan baru atau edit).
+
+    Satu-satunya sumber logika adalah ``auto_harga_pasar`` yang sudah
+    ada — tidak ada rumus baru di sini. Agen belum aktif / tanpa entri
+    pasaran / semua harga sudah sama ditangani sebagai pesan, bukan
+    pending.
+    """
+    from .handlers import _edit
+
+    if edit:
+        chat_id = target.message.chat_id
+    else:
+        chat_id = target.chat_id
+    store = context.bot_data["store"]
+    try:
+        tiers_mod.require_tier(store.get_tier(chat_id), "auto_harga_pasar")
+    except tiers_mod.TierError as exc:
+        if edit:
+            await _edit(target, str(exc), kb.back_to_menu())
+        else:
+            await target.reply_text(str(exc))
+        return
+    state, err = await _ambil_state(context, chat_id)
+    if err:
+        if edit:
+            await _edit(target, err, kb.back_to_menu())
+        else:
+            await target.reply_text(err)
+        return
+    data = context.bot_data["data"]
+    slot = state["slot"]
+    _, perubahan = auto_mod.auto_harga_pasar(slot, data)
+    gagal = [p for p in perubahan if not p.get("ok")]
+    if gagal:
+        # Satu-satunya kasus gagal auto_harga_pasar: agen belum aktif
+        # (level < 2, LEVEL_AGEN di game).
+        teks = (
+            "Agen harga pasar belum aktif — info harga pasar baru dibuka "
+            f"di Level 2 (warungmu sekarang Level "
+            f"{int(slot.get('tingkat', 0)) + 1}). "
+            "Naik ke Level 2 dulu, lalu coba lagi.")
+        if edit:
+            await _edit(target, teks, kb.back_to_menu())
+        else:
+            await target.reply_text(teks)
+        return
+    berubah = [p for p in perubahan if p.get("ok")]
+    if not berubah:
+        pasaran = slot.get("harga_pasaran") or {}
+        if not pasaran:
+            teks = ("Tidak ada perubahan pasaran minggu ini — save belum "
+                    "punya data harga pasar. Pasaran baru muncul setelah "
+                    "game dimainkan hari Senin (agen Pak Misran "
+                    "mengumumkannya).")
+        else:
+            teks = ("Semua harga sudah mengikuti harga pasar minggu ini — "
+                    "tidak ada yang perlu diubah.")
+        if edit:
+            await _edit(target, teks, kb.back_to_menu())
+        else:
+            await target.reply_text(teks)
+        return
+    terbuka = set(slot.get("barang_terbuka", []) or [])
+    total_fisik = sum(
+        1 for item_id in data.urutan_barang
+        if data.katalog[item_id]["jenis"] == "fisik"
+        and item_id in terbuka)
+    tidak_berubah = total_fisik - len(berubah)
+    harga_baru = {p["id"]: p["baru"] for p in berubah}
+    baris = ["Harga pasar minggu ini — yang berubah:"]
+    for p in berubah:
+        baris.append(
+            f"{p['nama']}: {format_rupiah(p['lama'])} → "
+            f"{format_rupiah(p['baru'])}")
+    if tidak_berubah > 0:
+        baris.append(f"{tidak_berubah} barang lain sudah mengikuti pasar.")
+    pending, teks_konfirmasi = build_pending_harga_pasar(
+        state, harga_baru, berubah)
     context.user_data[PENDING_KEY] = pending
     teks = "\n".join(baris) + "\n\n" + teks_konfirmasi
     if edit:

@@ -1,9 +1,10 @@
 """Mode Target Level — kerja nonstop sampai level tujuan (Fase 3+).
 
-Satu siklus target = 1 hari game: bayar misi cerita (bila uang cukup) ->
-beli upgrade syarat level (bila uang cukup) -> jalankan_siklus harian
-(1 hari simulasi + restock + isi tugas + auto-bayar). Job di jobs.py
-menjalankan satu siklus tiap 5 menit sampai berhenti.
+Satu siklus target = 1 hari game: bayar misi cerita (bila uang cukup
+sekali lunas DAN sisa uang >= Rp50.000) -> beli upgrade syarat level
+(bila uang cukup) -> jalankan_siklus harian (1 hari simulasi + restock
++ isi tugas + auto-bayar). Job di jobs.py menjalankan satu siklus tiap
+5 menit sampai berhenti.
 
 Dua hal yang TIDAK dilakukan siklus harian biasa dan ditambahkan di sini
 — keduanya membelanjakan uang game pengguna, jadi mode ini hanya jalan
@@ -27,7 +28,10 @@ import copy
 
 from . import save as save_mod
 from . import sim as sim_mod
-from .auto import CADANGAN_UANG_MIN, jalankan_siklus
+from .auto import CADANGAN_UANG_MIN, bayar_misi, jalankan_siklus
+
+# bayar_misi tinggal di auto.py (dipakai juga siklus harian dan Mode
+# Kejar lewat target_mod.bayar_misi); definisinya satu tempat.
 
 # Satu siklus tiap 5 menit; tiap siklus = 1 hari game.
 INTERVAL_MENIT = 5
@@ -55,25 +59,6 @@ def harga_upgrade(data, upgrade_id: str) -> int:
         return int(info.get("harga", -1))
     except (TypeError, ValueError):
         return -1
-
-
-def bayar_misi(slot: dict, data) -> tuple[dict, dict | None]:
-    """Bayar misi cerita seperti ``kirim_uang()`` (game_state.gd:4384).
-
-    Bila misi aktif dan uang cukup untuk SEKALI LUNAS (tidak bisa dicicil):
-    uang -= kekurangan, kiriman_bab = target, misi jadi "lunas".
-    Mengembalikan (slot_baru, aksi|None). Slot awal TIDAK diubah.
-    """
-    s = copy.deepcopy(slot)
-    if str(s.get("misi_status", "")) != "aktif":
-        return s, None
-    kurang = max(int(s.get("target_bab", 0)) - int(s.get("kiriman_bab", 0)), 0)
-    if kurang <= 0 or int(s.get("uang", 0)) < kurang:
-        return s, None
-    s["uang"] = int(s["uang"]) - kurang
-    s["kiriman_bab"] = int(s.get("target_bab", 0))
-    s["misi_status"] = "lunas"
-    return s, {"aksi": "bayar_misi", "ok": True, "jumlah": kurang}
 
 
 def beli_upgrade_syarat(slot: dict, data) -> tuple[dict, dict | None]:
